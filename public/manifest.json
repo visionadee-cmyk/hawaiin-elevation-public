@@ -1,0 +1,26 @@
+{
+  "name": "Hawaiin Elevation Platform",
+  "short_name": "Hawaiin Elevation",
+  "description": "Professional platform for CV building, website creation, and business tools",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a8a",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity", "utilities"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "CV Builder",
+      "short_name": "CV",
+      "description": "Create professional CVs",
+      "url": "/cv-builder"
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Access your dashboard",
+      "url": "/dashboard"
+    }
+  ]
+}
