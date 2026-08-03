@@ -10,9 +10,15 @@ import {
   Sparkles,
   FileText,
   User,
-  Building2
+  Building2,
+  Upload,
+  X
 } from 'lucide-react'
 import jsPDF from 'jspdf'
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
+
+// Configure PDF.js worker using jsdelivr CDN
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
 interface CoverLetterData {
   personalInfo: {
@@ -51,6 +57,9 @@ export function CoverLetterBuilder() {
   const [selectedTemplate, setSelectedTemplate] = useState('professional')
   const [autoSave, setAutoSave] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [uploadedCV, setUploadedCV] = useState<File | null>(null)
+  const [cvText, setCvText] = useState('')
+  const [isProcessingCV, setIsProcessingCV] = useState(false)
 
   const [coverLetterData, setCoverLetterData] = useState<CoverLetterData>({
     personalInfo: {
@@ -79,10 +88,14 @@ export function CoverLetterBuilder() {
   })
 
   useEffect(() => {
-    if (autoSave) {
-      localStorage.setItem('coverLetterData', JSON.stringify(coverLetterData))
+    if (autoSave && !isGenerating) {
+      try {
+        localStorage.setItem('coverLetterData', JSON.stringify(coverLetterData))
+      } catch (error) {
+        console.error('Error saving to localStorage:', error)
+      }
     }
-  }, [coverLetterData, autoSave])
+  }, [coverLetterData, autoSave, isGenerating])
 
   const handleInputChange = (section: keyof CoverLetterData, field: string, value: string) => {
     setCoverLetterData(prev => ({
@@ -94,20 +107,491 @@ export function CoverLetterBuilder() {
     }))
   }
 
-  const generateWithAI = () => {
+  const handleCVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setUploadedCV(file)
+    setIsProcessingCV(true)
+
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+      let extractedText = ''
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i)
+        const textContent = await page.getTextContent()
+        const pageText = textContent.items.map((item: any) => item.str).join(' ')
+        extractedText += pageText + '\n'
+      }
+
+      setCvText(extractedText)
+      
+      // Try to extract personal info from CV
+      const lines = extractedText.split('\n').filter(line => line.trim())
+      const emailMatch = extractedText.match(/[\w.-]+@[\w.-]+\.\w+/)
+      const phoneMatch = extractedText.match(/[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}/)
+      
+      if (emailMatch) {
+        handleInputChange('personalInfo', 'email', emailMatch[0])
+      }
+      if (phoneMatch) {
+        handleInputChange('personalInfo', 'phone', phoneMatch[0])
+      }
+      
+      // Try to extract name (first non-empty line)
+      if (lines.length > 0) {
+        const potentialName = lines[0].trim()
+        if (potentialName.length < 50 && !potentialName.includes('@')) {
+          handleInputChange('personalInfo', 'fullName', potentialName)
+        }
+      }
+
+    } catch (error) {
+      console.error('Error processing CV:', error)
+      alert('Error processing CV. Please try again.')
+    } finally {
+      setIsProcessingCV(false)
+    }
+  }
+
+  const removeCV = () => {
+    setUploadedCV(null)
+    setCvText('')
+  }
+
+  const testAPIConnection = async () => {
+    const apiKey = import.meta.env.VITE_HUGGINGFACE_API_KEY || ''
+    console.log('Testing API connection...')
+    console.log('API Key present:', !!apiKey)
+    
+    // Try multiple endpoints
+    const endpoints = [
+      'https://api.groq.com/openai/v1/chat/completions',
+      'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
+      'https://api.openai.com/v1/chat/completions',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
+      'https://api.cohere.ai/v1/generate'
+    ]
+    
+    for (const endpoint of endpoints) {
+      try {
+        console.log('Testing endpoint:', endpoint)
+        
+        let response
+        if (endpoint.includes('groq.com')) {
+          const groqKey = import.meta.env.VITE_GROQ_API_KEY || ''
+          if (!groqKey) {
+            console.log('No Groq key, skipping')
+            continue
+          }
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${groqKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'llama-3.3-70b-versatile',
+              messages: [{ role: 'user', content: 'Hello' }],
+              max_tokens: 5,
+            }),
+          })
+        } else if (endpoint.includes('googleapis')) {
+          const googleKey = import.meta.env.VITE_GOOGLE_API_KEY || ''
+          if (!googleKey) {
+            console.log('No Google key, skipping')
+            continue
+          }
+          response = await fetch(`${endpoint}?key=${googleKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: 'Hello, this is a test.' }] }],
+            }),
+          })
+        } else if (endpoint.includes('cohere')) {
+          const cohereKey = import.meta.env.VITE_COHERE_API_KEY || ''
+          if (!cohereKey) {
+            console.log('No Cohere key, skipping')
+            continue
+          }
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${cohereKey}`,
+              'Content-Type': 'application/json',
+              'X-Client-Name': 'hawain-elevation-plc-site',
+            },
+            body: JSON.stringify({
+              model: 'command',
+              prompt: 'Hello, this is a test.',
+              max_tokens: 10,
+            }),
+          })
+        } else if (endpoint.includes('api.openai.com')) {
+          const openaiKey = import.meta.env.VITE_OPENAI_API_KEY || ''
+          if (!openaiKey) {
+            console.log('No OpenAI key, skipping')
+            continue
+          }
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openaiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'gpt-3.5-turbo',
+              messages: [{ role: 'user', content: 'Hello, this is a test.' }],
+              max_tokens: 10,
+            }),
+          })
+        } else if (endpoint.includes('googleapis')) {
+          const googleKey = import.meta.env.VITE_GOOGLE_API_KEY || ''
+          if (!googleKey) {
+            console.log('No Google key, skipping')
+            continue
+          }
+          response = await fetch(`${endpoint}?key=${googleKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: 'Hello, this is a test.' }] }],
+            }),
+          })
+        } else if (endpoint.includes('cohere')) {
+          const cohereKey = import.meta.env.VITE_COHERE_API_KEY || ''
+          if (!cohereKey) {
+            console.log('No Cohere key, skipping')
+            continue
+          }
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${cohereKey}`,
+              'Content-Type': 'application/json',
+              'X-Client-Name': 'hawain-elevation-plc-site',
+            },
+            body: JSON.stringify({
+              model: 'command',
+              prompt: 'Hello, this is a test.',
+              max_tokens: 10,
+            }),
+          })
+        } else if (endpoint.includes('groq')) {
+          const groqKey = import.meta.env.VITE_GROQ_API_KEY || ''
+          if (!groqKey) {
+            console.log('No Groq key, skipping')
+            continue
+          }
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${groqKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'llama3-8b-8192',
+              messages: [{ role: 'user', content: 'Hello, this is a test.' }],
+              max_tokens: 10,
+            }),
+          })
+        } else {
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              inputs: 'Hello, this is a test.',
+              parameters: {
+                max_new_tokens: 10,
+              }
+            }),
+          })
+        }
+        
+        console.log('Response status:', response.status)
+        console.log('Response ok:', response.ok)
+        
+        if (response.ok) {
+          const result = await response.json()
+          console.log('API Response:', result)
+          alert(`API Test SUCCESS with ${endpoint}`)
+          return
+        }
+      } catch (error) {
+        console.error(`Error with ${endpoint}:`, error)
+      }
+    }
+    
+    alert('All API endpoints failed. Check your network configuration.')
+  }
+
+  const generateWithAI = async () => {
+    if (isGenerating) {
+      console.log('Already generating, skipping')
+      return
+    }
+    
     setIsGenerating(true)
-    setTimeout(() => {
+    
+    try {
+      // Try multiple AI providers
+      const providers = [
+        {
+          name: 'Hugging Face',
+          key: import.meta.env.VITE_HUGGINGFACE_API_KEY,
+          url: 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
+          format: (prompt) => ({ inputs: `[INST] ${prompt} [/INST]`, parameters: { max_new_tokens: 500, temperature: 0.7, top_p: 0.95, do_sample: true } }),
+          parse: (result) => result.generated_text || result[0]?.generated_text || result?.data?.[0]?.generated_text || ''
+        },
+        {
+          name: 'OpenAI',
+          key: import.meta.env.VITE_OPENAI_API_KEY,
+          url: 'https://api.openai.com/v1/chat/completions',
+          format: (prompt) => ({ model: 'gpt-3.5-turbo', messages: [{ role: 'user', content: prompt }], max_tokens: 500 }),
+          parse: (result) => result.choices?.[0]?.message?.content || ''
+        },
+        {
+          name: 'Google Gemini',
+          key: import.meta.env.VITE_GOOGLE_API_KEY,
+          url: (key) => `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+          format: (prompt) => ({ contents: [{ parts: [{ text: prompt }] }] }),
+          parse: (result) => result.candidates?.[0]?.content?.parts?.[0]?.text || ''
+        },
+        {
+          name: 'Cohere',
+          key: import.meta.env.VITE_COHERE_API_KEY,
+          url: 'https://api.cohere.ai/v1/chat/completions',
+          format: (prompt) => ({
+            model: 'command',
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 500,
+            temperature: 0.7,
+          }),
+          parse: (result) => result.choices?.[0]?.message?.content || result.choices?.[0]?.text || result.generations?.[0]?.text || ''
+        },
+        {
+          name: 'Groq',
+          key: import.meta.env.VITE_GROQ_API_KEY,
+          url: 'https://api.groq.com/openai/v1/chat/completions',
+          format: (prompt) => ({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], max_tokens: 1000 }),
+          parse: (result) => result.choices?.[0]?.message?.content || result.choices?.[0]?.text || result.choices?.[0]?.delta?.content || result.generated_text || ''
+        }
+      ]
+      
+      const prompt = `You are a professional cover letter writer. Write a compelling, personalized cover letter.
+
+CRITICAL - Use these EXACT values from the form:
+- Applicant Name: "${coverLetterData.personalInfo.fullName}"
+- Applicant Email: "${coverLetterData.personalInfo.email}"
+- Applicant Phone: "${coverLetterData.personalInfo.phone}"
+- Company Name: "${coverLetterData.recipientInfo.company}"
+- Position: "${coverLetterData.letterDetails.position}"
+- Recipient Name: "${coverLetterData.recipientInfo.name || 'Hiring Manager'}"
+- Recipient Title: "${coverLetterData.recipientInfo.title || ''}"
+- Date: "${new Date().toLocaleDateString()}"
+
+${cvText ? `APPLICANT'S FULL CV CONTENT:\n${cvText}\n\nIMPORTANT: If the form fields above are empty, extract the applicant's name, email, phone, and other details from this CV and use them in the cover letter.` : 'No CV provided'}
+
+STRICT RULES:
+1. If "${coverLetterData.personalInfo.fullName}" is empty, extract the name from the CV and use it
+2. MUST use the applicant's actual name (from form or CV) as the signature - NEVER use "Your Name"
+3. MUST use "${coverLetterData.recipientInfo.company}" throughout - if empty, use a generic placeholder
+4. NEVER use brackets like [Company], [Name], [Date] - use actual values
+5. Write 3-4 professional paragraphs
+6. Include specific details from the CV (experience, skills, achievements)
+7. End with the applicant's actual name signature
+
+Write the cover letter now:`
+      
+      const normalizeAIOutput = (output: any): string => {
+        if (output == null) return ''
+        if (typeof output === 'string') return output
+        if (Array.isArray(output)) return output.map(normalizeAIOutput).join(' ')
+        if (typeof output === 'object') {
+          if ('parts' in output) return normalizeAIOutput(output.parts)
+          if ('text' in output) return normalizeAIOutput(output.text)
+          if ('content' in output) return normalizeAIOutput(output.content)
+          if ('generated_text' in output) return normalizeAIOutput(output.generated_text)
+          return Object.values(output).map(normalizeAIOutput).join(' ')
+        }
+        return String(output)
+      }
+
+      let lastError = null
+      let generatedText = ''
+      
+      for (const provider of providers) {
+        if (!provider.key) {
+          console.log(`No ${provider.name} key, skipping`)
+          continue
+        }
+        
+        try {
+          console.log(`Trying ${provider.name}...`)
+          
+          const url = typeof provider.url === 'function' ? provider.url(provider.key) : provider.url
+          const body = provider.format(prompt)
+          
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${provider.key}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(30000)
+          })
+          
+          if (!response.ok) {
+            const text = await response.text()
+            console.error(`${provider.name} returned non-OK status`, response.status, response.statusText, text)
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+          
+          const result = await response.json()
+          console.log(`Raw ${provider.name} response:`, result)
+          generatedText = normalizeAIOutput(provider.parse(result))
+          console.log(`${provider.name} parsed generated text length:`, generatedText.length)
+          console.log(`${provider.name} parsed generated text preview:`, generatedText.slice(0, 300))
+          
+          if (generatedText.trim()) {
+            console.log(`Successfully generated with ${provider.name}`)
+            break
+          }
+        } catch (error) {
+          console.error(`Error with ${provider.name}:`, error)
+          lastError = error
+          continue
+        }
+      }
+      
+      if (!generatedText) {
+        throw new Error(lastError || 'All AI providers failed to generate content')
+      }
+      
+      // Post-process: Replace any remaining placeholders with actual values
+      generatedText = generatedText
+        .replace(/Your Name/gi, coverLetterData.personalInfo.fullName)
+        .replace(/\[Name\]/gi, coverLetterData.personalInfo.fullName)
+        .replace(/\[Company\]/gi, coverLetterData.recipientInfo.company)
+        .replace(/\[Position\]/gi, coverLetterData.letterDetails.position)
+        .replace(/\[Recipient\]/gi, coverLetterData.recipientInfo.name || 'Hiring Manager')
+        .replace(/\[Title\]/gi, coverLetterData.recipientInfo.title || '')
+        .replace(/\[Date\]/gi, new Date().toLocaleDateString())
+        .replace(/\[Email\]/gi, coverLetterData.personalInfo.email)
+        .replace(/\[Phone\]/gi, coverLetterData.personalInfo.phone)
+      
+      // If form name is empty but CV was provided, try to extract name from generated text
+      let extractedName = null
+      if (!coverLetterData.personalInfo.fullName && cvText) {
+        // Look for signature patterns - more flexible matching
+        // Pattern 1: Name before "Sincerely" - extract 2+ capitalized words, ignore contact info
+        const beforeSignatureMatch = generatedText.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)(?:\s+(?:[a-zA-Z0-9@.+\-]+\s*)+)?\s*\n\s*(?:Sincerely|Regards|Best regards)/m)
+        // Pattern 2: Name after "Sincerely"
+        const afterSignatureMatch = generatedText.match(/(?:Sincerely|Regards|Best regards)[\s\n]+([A-Z][a-zA-Z\s]+)$/m)
+        // Pattern 3: Look for 2+ capitalized words at the end of text
+        const endMatch = generatedText.match(/([A-Z][a-z]+\s+[A-Z][a-zA-Z\s]+)(?:\s+[a-zA-Z0-9@.+\-]+)*\s*$/m)
+        
+        if (beforeSignatureMatch && beforeSignatureMatch[1]) {
+          extractedName = beforeSignatureMatch[1].trim()
+        } else if (afterSignatureMatch && afterSignatureMatch[1]) {
+          extractedName = afterSignatureMatch[1].trim()
+        } else if (endMatch && endMatch[1]) {
+          extractedName = endMatch[1].trim()
+        }
+        
+        if (extractedName && extractedName.length > 2 && extractedName.split(' ').length >= 2) {
+          generatedText = generatedText.replace(/Your Name/gi, extractedName)
+          console.log('Extracted name from generated text:', extractedName)
+        }
+      }
+      
+      // Final replacement: ensure "Your Name" is replaced with actual name or extracted name
+      const finalName = coverLetterData.personalInfo.fullName || extractedName
+      if (finalName) {
+        generatedText = generatedText.replace(/Your Name/gi, finalName)
+      }
+      
+      console.log('Applicant full name:', coverLetterData.personalInfo.fullName)
+      console.log('Generated text after post-processing:', generatedText.substring(0, 500))
+      
+      // Parse the generated text into cover letter sections
+      const lines = generatedText.split('\n').filter(line => line.trim())
+      
+      let introduction = ''
+      let body = ''
+      let conclusion = ''
+      
+      let currentSection = 'introduction'
+      for (const line of lines) {
+        if (line.toLowerCase().includes('dear') || line.toLowerCase().includes('hiring')) {
+          continue
+        }
+        if (line.toLowerCase().includes('sincerely') || line.toLowerCase().includes('regards') || line.toLowerCase().includes('thank you')) {
+          currentSection = 'conclusion'
+        }
+        
+        if (currentSection === 'introduction' && (line.length > 50 || body)) {
+          currentSection = 'body'
+        }
+        
+        if (currentSection === 'introduction') {
+          introduction += line + ' '
+        } else if (currentSection === 'body') {
+          body += line + ' '
+        } else {
+          conclusion += line + ' '
+        }
+      }
+
+      // Update state with generated content
+      try {
+        setCoverLetterData(prev => ({
+          ...prev,
+          content: {
+            ...prev.content,
+            introduction: introduction.trim() || `I am writing to express my strong interest in the ${coverLetterData.letterDetails.position} position at ${coverLetterData.recipientInfo.company}. Based on my background and experience, I believe I would be a valuable addition to your team.`,
+            body: body.trim() || `My experience and qualifications align well with the requirements of this position. I have developed strong skills throughout my career and am particularly drawn to ${coverLetterData.recipientInfo.company} because of its reputation for excellence. I am confident that my expertise would be valuable to your team.`,
+            conclusion: conclusion.trim() || `I am excited about the opportunity to bring my skills and experience to ${coverLetterData.recipientInfo.company}. I would welcome the chance to discuss how I can contribute to your team's success. Thank you for considering my application.`
+          }
+        }))
+      } catch (error) {
+        console.error('Error updating cover letter data:', error)
+      }
+      
+      setIsGenerating(false)
+    } catch (error) {
+      console.error('Error generating cover letter:', error)
+      setIsGenerating(false)
+      
+      // Fallback to template-based generation
+      const hasCV = cvText.length > 0
+      const cvContext = hasCV ? ' Based on your CV and experience, ' : ''
+      
       setCoverLetterData(prev => ({
         ...prev,
         content: {
           ...prev.content,
-          introduction: `I am writing to express my strong interest in the ${coverLetterData.letterDetails.position} position at ${coverLetterData.recipientInfo.company}. With my background and experience, I am confident in my ability to contribute effectively to your team.`,
-          body: `Throughout my career, I have developed strong skills in leadership, problem-solving, and communication. I am particularly drawn to ${coverLetterData.recipientInfo.company} because of its reputation for innovation and excellence. I believe my experience aligns perfectly with the requirements of this role.`,
+          introduction: `I am writing to express my strong interest in the ${coverLetterData.letterDetails.position} position at ${coverLetterData.recipientInfo.company}.${cvContext}I believe my background and skills make me an ideal candidate for this role.`,
+          body: hasCV 
+            ? `My experience and qualifications align well with the requirements of this position. I have developed strong skills in my field and am particularly drawn to ${coverLetterData.recipientInfo.company} because of its reputation for excellence and innovation. I am confident that my expertise would be valuable to your team and I am eager to contribute to your continued success.`
+            : `Throughout my career, I have developed strong skills in leadership, problem-solving, and communication. I am particularly drawn to ${coverLetterData.recipientInfo.company} because of its reputation for innovation and excellence. I believe my experience aligns perfectly with the requirements of this role.`,
           conclusion: `I am excited about the opportunity to bring my skills and experience to ${coverLetterData.recipientInfo.company}. I would welcome the chance to discuss how I can contribute to your team's success. Thank you for considering my application.`
         }
       }))
-      setIsGenerating(false)
-    }, 2000)
+      
+      alert(`AI generation failed: ${error instanceof Error ? error.message : 'Unknown error'}. Using template-based generation instead. Add API keys to .env for AI features (OPENAI_API_KEY, GOOGLE_API_KEY, or HUGGINGFACE_API_KEY).`)
+    }
   }
 
   const downloadPDF = () => {
@@ -186,6 +670,9 @@ export function CoverLetterBuilder() {
               />
               <span className="text-sm text-gray-600 dark:text-gray-400">Auto Save</span>
             </div>
+            <Button variant="outline" size="sm" onClick={testAPIConnection}>
+              Test API
+            </Button>
             <Button variant="outline" size="sm" onClick={generateWithAI} disabled={isGenerating}>
               <Sparkles className="w-4 h-4 mr-2" />
               {isGenerating ? 'Generating...' : 'AI Generate'}
@@ -241,6 +728,60 @@ export function CoverLetterBuilder() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6 overflow-x-auto">
+              {/* CV Upload Section */}
+              <div>
+                <h4 className="font-semibold mb-4 flex items-center">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload CV (Optional)
+                </h4>
+                {!uploadedCV ? (
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-primary transition-colors">
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleCVUpload}
+                      disabled={isProcessingCV}
+                      className="hidden"
+                      id="cv-upload"
+                    />
+                    <label
+                      htmlFor="cv-upload"
+                      className="cursor-pointer flex flex-col items-center"
+                    >
+                      <Upload className="w-12 h-12 text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {isProcessingCV ? 'Processing CV...' : 'Click to upload your CV (PDF)'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        We'll extract your info to auto-fill the form
+                      </p>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <FileText className="w-5 h-5 text-primary mr-2" />
+                        <div>
+                          <p className="font-medium text-sm">{uploadedCV.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {cvText.length > 0 ? '✓ CV processed successfully' : 'Processing...'}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={removeCV}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Personal Info */}
               <div>
                 <h4 className="font-semibold mb-4 flex items-center">

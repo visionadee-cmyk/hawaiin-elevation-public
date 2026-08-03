@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { ArrowRight, Check, Star, Zap, Shield, Globe, Clock, ChevronRight, ExternalLink } from 'lucide-react'
+import { ArrowRight, Check, Star, Zap, Shield, Globe, Clock, ChevronRight, ExternalLink, FileText, Mail, Layout, Briefcase, Bot, Palette, User, GraduationCap, Rocket, BarChart3, Award } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card, CardContent } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
@@ -82,12 +82,54 @@ export function LandingPage() {
     }
   }, [location])
   const services = [
-    { icon: '📄', title: 'CV Builder', description: 'Create professional resumes with ATS-friendly templates', link: '/cv-builder' },
-    { icon: '✉️', title: 'Cover Letter', description: 'AI-powered cover letters that get you hired', link: '/cover-letter' },
-    { icon: '🌐', title: 'Website Builder', description: 'Build stunning websites without coding', link: '/website-builder' },
-    { icon: '💼', title: 'Portfolio', description: 'Showcase your work beautifully', link: '/portfolio' },
-    { icon: '🤖', title: 'AI Tools', description: 'Smart AI assistance for all your needs', link: '/ai-tools' },
-    { icon: '🎨', title: 'Graphics', description: 'Professional design tools for everyone', link: '/graphics' },
+    { 
+      icon: FileText, 
+      title: 'CV Builder', 
+      description: 'Create professional resumes with ATS-friendly templates', 
+      link: '/cv-builder',
+      gradient: 'from-blue-500 to-cyan-500',
+      illustration: '📋'
+    },
+    { 
+      icon: Mail, 
+      title: 'Cover Letter', 
+      description: 'AI-powered cover letters that get you hired', 
+      link: '/cover-letter',
+      gradient: 'from-purple-500 to-pink-500',
+      illustration: '✉️'
+    },
+    { 
+      icon: Layout, 
+      title: 'Website Builder', 
+      description: 'Build stunning websites without coding', 
+      link: '/website-builder',
+      gradient: 'from-green-500 to-emerald-500',
+      illustration: '🌐'
+    },
+    { 
+      icon: Briefcase, 
+      title: 'Portfolio', 
+      description: 'Showcase your work beautifully', 
+      link: '/portfolio',
+      gradient: 'from-orange-500 to-red-500',
+      illustration: '💼'
+    },
+    { 
+      icon: Bot, 
+      title: 'AI Tools', 
+      description: 'Smart AI assistance for all your needs', 
+      link: '/ai-tools',
+      gradient: 'from-indigo-500 to-purple-500',
+      illustration: '🤖'
+    },
+    { 
+      icon: Palette, 
+      title: 'Graphics', 
+      description: 'Professional design tools for everyone', 
+      link: '/graphics',
+      gradient: 'from-pink-500 to-rose-500',
+      illustration: '🎨'
+    },
   ]
 
   const features = [
@@ -269,51 +311,58 @@ export function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
             {[
               {
-                icon: '👤',
+                icon: User,
                 title: 'Professional Profile',
                 description: 'Create stunning personal profiles with photos, bio, and contact information',
-                features: ['Photo Gallery', 'Bio Section', 'Contact Info', 'Social Links']
+                features: ['Photo Gallery', 'Bio Section', 'Contact Info', 'Social Links'],
+                gradient: 'from-blue-500 to-cyan-500'
               },
               {
-                icon: '💼',
+                icon: Briefcase,
                 title: 'Work Experience',
                 description: 'Highlight your career journey with detailed work history and achievements',
-                features: ['Timeline View', 'Company Logos', 'Key Achievements', 'Skills Tags']
+                features: ['Timeline View', 'Company Logos', 'Key Achievements', 'Skills Tags'],
+                gradient: 'from-purple-500 to-pink-500'
               },
               {
-                icon: '🎓',
+                icon: GraduationCap,
                 title: 'Education & Certifications',
                 description: 'Display your academic background and professional certifications',
-                features: ['Degree Display', 'Certificate Badges', 'Institution Info', 'Graduation Dates']
+                features: ['Degree Display', 'Certificate Badges', 'Institution Info', 'Graduation Dates'],
+                gradient: 'from-green-500 to-emerald-500'
               },
               {
-                icon: '🚀',
+                icon: Rocket,
                 title: 'Projects Showcase',
                 description: 'Present your best work with images, descriptions, and links',
-                features: ['Project Gallery', 'Case Studies', 'Live Demos', 'Client Testimonials']
+                features: ['Project Gallery', 'Case Studies', 'Live Demos', 'Client Testimonials'],
+                gradient: 'from-orange-500 to-red-500'
               },
               {
-                icon: '📊',
+                icon: BarChart3,
                 title: 'Skills & Expertise',
                 description: 'Visual representation of your technical and soft skills',
-                features: ['Skill Bars', 'Technology Icons', 'Proficiency Levels', 'Category Groups']
+                features: ['Skill Bars', 'Technology Icons', 'Proficiency Levels', 'Category Groups'],
+                gradient: 'from-indigo-500 to-purple-500'
               },
               {
-                icon: '📝',
+                icon: Award,
                 title: 'Resume Integration',
                 description: 'Seamlessly integrate your CV with downloadable options',
-                features: ['PDF Download', 'Print Friendly', 'Multiple Templates', 'ATS Optimized']
+                features: ['PDF Download', 'Print Friendly', 'Multiple Templates', 'ATS Optimized'],
+                gradient: 'from-pink-500 to-rose-500'
               }
             ].map((section, index) => (
-              <Card key={index} className="hover:shadow-xl transition-shadow duration-300">
+              <Card key={index} className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group overflow-hidden">
+                <div className={`h-2 bg-gradient-to-r ${section.gradient}`}></div>
                 <CardContent className="p-6">
-                  <div className="text-4xl mb-4">{section.icon}</div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                    {section.title}
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    {section.description}
-                  </p>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${section.gradient} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <section.icon className="w-7 h-7 text-white" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{section.title}</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">{section.description}</p>
                   <ul className="space-y-2">
                     {section.features.map((feature, idx) => (
                       <li key={idx} className="flex items-center text-sm text-gray-600 dark:text-gray-400">
@@ -398,12 +447,18 @@ export function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {services.map((service, index) => (
               <Link key={index} to={service.link}>
-                <Card className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer">
+                <Card className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer group overflow-hidden">
+                  <div className={`h-2 bg-gradient-to-r ${service.gradient}`}></div>
                   <CardContent className="p-6">
-                    <div className="text-4xl mb-4">{service.icon}</div>
-                    <h3 className="text-xl font-semibold mb-2">{service.title}</h3>
+                    <div className="flex items-start justify-between mb-4">
+                      <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${service.gradient} flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                        <service.icon className="w-7 h-7 text-white" />
+                      </div>
+                      <span className="text-3xl opacity-20 group-hover:opacity-40 transition-opacity">{service.illustration}</span>
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">{service.title}</h3>
                     <p className="text-gray-600 dark:text-gray-400 mb-4">{service.description}</p>
-                    <div className="flex items-center text-primary">
+                    <div className="flex items-center text-primary font-medium group-hover:translate-x-2 transition-transform duration-300">
                       Try Now <ChevronRight className="ml-1 w-4 h-4" />
                     </div>
                   </CardContent>
