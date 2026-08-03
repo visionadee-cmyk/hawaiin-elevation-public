@@ -350,41 +350,41 @@ export function CoverLetterBuilder() {
           name: 'Hugging Face',
           key: import.meta.env.VITE_HUGGINGFACE_API_KEY,
           url: 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2',
-          format: (prompt) => ({ inputs: `[INST] ${prompt} [/INST]`, parameters: { max_new_tokens: 500, temperature: 0.7, top_p: 0.95, do_sample: true } }),
-          parse: (result) => result.generated_text || result[0]?.generated_text || result?.data?.[0]?.generated_text || ''
+          format: (prompt: string) => ({ inputs: `[INST] ${prompt} [/INST]`, parameters: { max_new_tokens: 500, temperature: 0.7, top_p: 0.95, do_sample: true } }),
+          parse: (result: any) => result.generated_text || result[0]?.generated_text || result?.data?.[0]?.generated_text || ''
         },
         {
           name: 'OpenAI',
           key: import.meta.env.VITE_OPENAI_API_KEY,
           url: 'https://api.openai.com/v1/chat/completions',
-          format: (prompt) => ({ model: 'gpt-3.5-turbo', messages: [{ role: 'user', content: prompt }], max_tokens: 500 }),
-          parse: (result) => result.choices?.[0]?.message?.content || ''
+          format: (prompt: string) => ({ model: 'gpt-3.5-turbo', messages: [{ role: 'user', content: prompt }], max_tokens: 500 }),
+          parse: (result: any) => result.choices?.[0]?.message?.content || ''
         },
         {
           name: 'Google Gemini',
           key: import.meta.env.VITE_GOOGLE_API_KEY,
-          url: (key) => `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
-          format: (prompt) => ({ contents: [{ parts: [{ text: prompt }] }] }),
-          parse: (result) => result.candidates?.[0]?.content?.parts?.[0]?.text || ''
+          url: (key: string) => `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+          format: (prompt: string) => ({ contents: [{ parts: [{ text: prompt }] }] }),
+          parse: (result: any) => result.candidates?.[0]?.content?.parts?.[0]?.text || ''
         },
         {
           name: 'Cohere',
           key: import.meta.env.VITE_COHERE_API_KEY,
           url: 'https://api.cohere.ai/v1/chat/completions',
-          format: (prompt) => ({
+          format: (prompt: string) => ({
             model: 'command',
             messages: [{ role: 'user', content: prompt }],
             max_tokens: 500,
             temperature: 0.7,
           }),
-          parse: (result) => result.choices?.[0]?.message?.content || result.choices?.[0]?.text || result.generations?.[0]?.text || ''
+          parse: (result: any) => result.choices?.[0]?.message?.content || result.choices?.[0]?.text || result.generations?.[0]?.text || ''
         },
         {
           name: 'Groq',
           key: import.meta.env.VITE_GROQ_API_KEY,
           url: 'https://api.groq.com/openai/v1/chat/completions',
-          format: (prompt) => ({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], max_tokens: 1000 }),
-          parse: (result) => result.choices?.[0]?.message?.content || result.choices?.[0]?.text || result.choices?.[0]?.delta?.content || result.generated_text || ''
+          format: (prompt: string) => ({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], max_tokens: 1000 }),
+          parse: (result: any) => result.choices?.[0]?.message?.content || result.choices?.[0]?.text || result.choices?.[0]?.delta?.content || result.generated_text || ''
         }
       ]
       
@@ -476,7 +476,7 @@ Write the cover letter now:`
       }
       
       if (!generatedText) {
-        throw new Error(lastError || 'All AI providers failed to generate content')
+        throw new Error(typeof lastError === 'string' ? lastError : 'All AI providers failed to generate content')
       }
       
       // Post-process: Replace any remaining placeholders with actual values
