@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { Label } from '../components/ui/label'
+import { Label } from '../components/ui/Label'
 import { Lock, FileText, Receipt, CheckCircle, Share2, Download, Plus, Building2, LogOut, Trash2 } from 'lucide-react'
 import jsPDF from 'jspdf'
 
@@ -63,8 +63,6 @@ export function AdminPanel() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [showNewQuotation, setShowNewQuotation] = useState(false)
   const [showNewInvoice, setShowNewInvoice] = useState(false)
-  const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null)
-  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
 
   const [newQuotation, setNewQuotation] = useState<Quotation>({
     id: '', number: '', date: new Date().toISOString().split('T')[0], clientName: '', clientAddress: '',
