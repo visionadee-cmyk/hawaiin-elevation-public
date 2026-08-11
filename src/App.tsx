@@ -30,6 +30,8 @@ import { WebApps } from './pages/WebApps'
 import { LogoPortfolio } from './pages/LogoPortfolio'
 import { Images3DPortfolio } from './pages/Images3DPortfolio'
 import { Videos3DPortfolio } from './pages/Videos3DPortfolio'
+import { AdminPanel } from './pages/AdminPanel'
+import { ClientDocumentView } from './pages/ClientDocumentView'
 
 function App() {
   return (
@@ -69,6 +71,9 @@ function App() {
                 <Route path="/logo-portfolio" element={<LogoPortfolio />} />
                 <Route path="/3d-images" element={<Images3DPortfolio />} />
                 <Route path="/3d-videos" element={<Videos3DPortfolio />} />
+                <Route path="/admin-panel" element={<AdminPanel />} />
+                <Route path="/view-quotation/:id" element={<ClientDocumentView />} />
+                <Route path="/view-invoice/:id" element={<ClientDocumentView />} />
                 {/* Landing page sections */}
                 <Route path="/pricing" element={<LandingPage />} />
                 <Route path="/services" element={<LandingPage />} />
