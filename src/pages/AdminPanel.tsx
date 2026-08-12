@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
-import { Lock, FileText, Receipt, CheckCircle, Share2, Download, Plus, Building2, LogOut, Trash2, Package, Edit } from 'lucide-react'
+import { Lock, FileText, Receipt, CheckCircle, Share2, Download, Plus, Building2, LogOut, Trash2, Package, Edit, Eye, X } from 'lucide-react'
 import jsPDF from 'jspdf'
 import { db } from '../lib/firebase'
 import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
@@ -86,6 +86,10 @@ export function AdminPanel() {
   const [showNewInvoice, setShowNewInvoice] = useState(false)
   const [showNewService, setShowNewService] = useState(false)
   const [editingService, setEditingService] = useState<Service | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
+  const [previewType, setPreviewType] = useState<'quotation' | 'invoice'>('quotation')
+  const [previewData, setPreviewData] = useState<Quotation | Invoice | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   const [newQuotation, setNewQuotation] = useState<Quotation>({
     id: '', number: '', date: new Date().toISOString().split('T')[0], clientName: '', clientAddress: '',
@@ -548,13 +552,14 @@ export function AdminPanel() {
     localStorage.setItem('invoices', JSON.stringify(updated))
   }
 
-  const generateQuotationPDF = (quotation: Quotation) => {
+  const generateQuotationPDF = async (quotation: Quotation, preview: boolean = false) => {
     const doc = new jsPDF()
     let y = 20
 
     if (companyInfo.logo) {
       try {
-        doc.addImage(companyInfo.logo, 'JPEG', 20, y, 40, 40)
+        const logoData = await loadImageAsBase64(companyInfo.logo)
+        doc.addImage(logoData, 'JPEG', 20, y, 40, 40)
         y += 50
       } catch (e) {
         console.error('Error loading logo:', e)
@@ -616,8 +621,8 @@ export function AdminPanel() {
         doc.text(line, 20, y + (i * 5))
       })
       doc.text(item.quantity.toString(), 120, y)
-      doc.text(`$${item.rate.toFixed(2)}`, 140, y)
-      doc.text(`$${item.amount.toFixed(2)}`, 170, y)
+      doc.text(`MVR ${item.rate.toFixed(2)}`, 140, y)
+      doc.text(`MVR ${item.amount.toFixed(2)}`, 170, y)
       y += Math.max(15, descLines.length * 5 + 5)
     })
 
@@ -626,14 +631,14 @@ export function AdminPanel() {
     y += 10
 
     doc.text('Subtotal:', 130, y)
-    doc.text(`$${quotation.subtotal.toFixed(2)}`, 170, y)
+    doc.text(`MVR ${quotation.subtotal.toFixed(2)}`, 170, y)
     y += 7
     doc.text('Tax:', 130, y)
-    doc.text(`$${quotation.tax.toFixed(2)}`, 170, y)
+    doc.text(`MVR ${quotation.tax.toFixed(2)}`, 170, y)
     y += 7
     doc.setFontSize(14)
     doc.text('Total:', 130, y)
-    doc.text(`$${quotation.total.toFixed(2)}`, 170, y)
+    doc.text(`MVR ${quotation.total.toFixed(2)}`, 170, y)
     y += 15
 
     if (quotation.notes) {
@@ -650,7 +655,8 @@ export function AdminPanel() {
     y += 20
     if (companyInfo.registryStamp) {
       try {
-        doc.addImage(companyInfo.registryStamp, 'PNG', 140, y - 20, 40, 40)
+        const stampData = await loadImageAsBase64(companyInfo.registryStamp)
+        doc.addImage(stampData, 'PNG', 140, y - 20, 40, 40)
       } catch (e) {
         console.error('Error loading stamp:', e)
       }
@@ -658,7 +664,8 @@ export function AdminPanel() {
 
     if (companyInfo.signature) {
       try {
-        doc.addImage(companyInfo.signature, 'JPEG', 20, y, 50, 25)
+        const signatureData = await loadImageAsBase64(companyInfo.signature)
+        doc.addImage(signatureData, 'JPEG', 20, y, 50, 25)
         doc.setFontSize(10)
         doc.text('Authorized Signature', 20, y + 30)
       } catch (e) {
@@ -666,16 +673,21 @@ export function AdminPanel() {
       }
     }
 
-    doc.save(`Quotation-${quotation.number}.pdf`)
+    if (preview) {
+      return doc.output('datauristring')
+    } else {
+      doc.save(`Quotation-${quotation.number}.pdf`)
+    }
   }
 
-  const generateInvoicePDF = (invoice: Invoice) => {
+  const generateInvoicePDF = async (invoice: Invoice, preview: boolean = false) => {
     const doc = new jsPDF()
     let y = 20
 
     if (companyInfo.logo) {
       try {
-        doc.addImage(companyInfo.logo, 'JPEG', 20, y, 40, 40)
+        const logoData = await loadImageAsBase64(companyInfo.logo)
+        doc.addImage(logoData, 'JPEG', 20, y, 40, 40)
         y += 50
       } catch (e) {
         console.error('Error loading logo:', e)
@@ -739,8 +751,8 @@ export function AdminPanel() {
         doc.text(line, 20, y + (i * 5))
       })
       doc.text(item.quantity.toString(), 120, y)
-      doc.text(`$${item.rate.toFixed(2)}`, 140, y)
-      doc.text(`$${item.amount.toFixed(2)}`, 170, y)
+      doc.text(`MVR ${item.rate.toFixed(2)}`, 140, y)
+      doc.text(`MVR ${item.amount.toFixed(2)}`, 170, y)
       y += Math.max(15, descLines.length * 5 + 5)
     })
 
@@ -749,17 +761,17 @@ export function AdminPanel() {
     y += 10
 
     doc.text('Subtotal:', 130, y)
-    doc.text(`$${invoice.subtotal.toFixed(2)}`, 170, y)
+    doc.text(`MVR ${invoice.subtotal.toFixed(2)}`, 170, y)
     y += 7
     doc.text('Tax:', 130, y)
-    doc.text(`$${invoice.tax.toFixed(2)}`, 170, y)
+    doc.text(`MVR ${invoice.tax.toFixed(2)}`, 170, y)
     y += 7
     doc.text('Paid:', 130, y)
-    doc.text(`$${invoice.paidAmount.toFixed(2)}`, 170, y)
+    doc.text(`MVR ${invoice.paidAmount.toFixed(2)}`, 170, y)
     y += 7
     doc.setFontSize(14)
     doc.text('Balance:', 130, y)
-    doc.text(`$${(invoice.total - invoice.paidAmount).toFixed(2)}`, 170, y)
+    doc.text(`MVR ${(invoice.total - invoice.paidAmount).toFixed(2)}`, 170, y)
     y += 15
 
     if (invoice.notes) {
@@ -776,7 +788,8 @@ export function AdminPanel() {
     y += 20
     if (companyInfo.registryStamp) {
       try {
-        doc.addImage(companyInfo.registryStamp, 'PNG', 140, y - 20, 40, 40)
+        const stampData = await loadImageAsBase64(companyInfo.registryStamp)
+        doc.addImage(stampData, 'PNG', 140, y - 20, 40, 40)
       } catch (e) {
         console.error('Error loading stamp:', e)
       }
@@ -784,7 +797,8 @@ export function AdminPanel() {
 
     if (companyInfo.signature) {
       try {
-        doc.addImage(companyInfo.signature, 'JPEG', 20, y, 50, 25)
+        const signatureData = await loadImageAsBase64(companyInfo.signature)
+        doc.addImage(signatureData, 'JPEG', 20, y, 50, 25)
         doc.setFontSize(10)
         doc.text('Authorized Signature', 20, y + 30)
       } catch (e) {
@@ -792,7 +806,11 @@ export function AdminPanel() {
       }
     }
 
-    doc.save(`Invoice-${invoice.number}.pdf`)
+    if (preview) {
+      return doc.output('datauristring')
+    } else {
+      doc.save(`Invoice-${invoice.number}.pdf`)
+    }
   }
 
   const getShareableLink = (id: string, type: 'quotation' | 'invoice') => {
@@ -802,6 +820,54 @@ export function AdminPanel() {
   const saveCompanyInfo = () => {
     localStorage.setItem('companyInfo', JSON.stringify(companyInfo))
     alert('Company information saved!')
+  }
+
+  const previewQuotation = async (quotation: Quotation) => {
+    setPreviewType('quotation')
+    setPreviewData(quotation)
+    const url = await generateQuotationPDF(quotation, true)
+    setPreviewUrl(url)
+    setShowPreview(true)
+  }
+
+  const previewInvoice = async (invoice: Invoice) => {
+    setPreviewType('invoice')
+    setPreviewData(invoice)
+    const url = await generateInvoicePDF(invoice, true)
+    setPreviewUrl(url)
+    setShowPreview(true)
+  }
+
+  const downloadPDF = async () => {
+    if (!previewData) return
+    if (previewType === 'quotation') {
+      await generateQuotationPDF(previewData as Quotation, false)
+    } else {
+      await generateInvoicePDF(previewData as Invoice, false)
+    }
+    setShowPreview(false)
+  }
+
+  const loadImageAsBase64 = (url: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = 'Anonymous'
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0)
+          const dataUrl = canvas.toDataURL('image/png')
+          resolve(dataUrl)
+        } else {
+          reject(new Error('Failed to get canvas context'))
+        }
+      }
+      img.onerror = () => reject(new Error('Failed to load image'))
+      img.src = url
+    })
   }
 
   const saveService = async () => {
@@ -1118,9 +1184,9 @@ export function AdminPanel() {
 
                   <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <div>
-                      <p className="text-sm text-gray-600">Subtotal: <span className="font-bold">${newQuotation.subtotal?.toFixed(2)}</span></p>
-                      <p className="text-sm text-gray-600">Tax: <span className="font-bold">${newQuotation.tax?.toFixed(2)}</span></p>
-                      <p className="text-lg font-bold text-primary">Total: ${newQuotation.total?.toFixed(2)}</p>
+                      <p className="text-sm text-gray-600">Subtotal: <span className="font-bold">MVR {newQuotation.subtotal?.toFixed(2)}</span></p>
+                      <p className="text-sm text-gray-600">Tax: <span className="font-bold">MVR {newQuotation.tax?.toFixed(2)}</span></p>
+                      <p className="text-lg font-bold text-primary">Total: MVR {newQuotation.total?.toFixed(2)}</p>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" onClick={() => setShowNewQuotation(false)}>Cancel</Button>
@@ -1133,7 +1199,7 @@ export function AdminPanel() {
 
             <div className="space-y-4">
               {quotations.map((q) => (
-                <Card key={q.id}><CardContent className="p-6"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><h3 className="font-semibold">{q.number}</h3><p className="text-sm text-gray-600">{q.clientName}</p><p className="text-sm text-gray-600">{q.date}</p><p className="text-lg font-bold text-primary">${q.total.toFixed(2)}</p></div><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => generateQuotationPDF(q)}><Download className="w-4 h-4 mr-2" />PDF</Button><Button size="sm" variant="outline" onClick={() => {navigator.clipboard.writeText(getShareableLink(q.id, 'quotation')); alert('Link copied!')}}><Share2 className="w-4 h-4 mr-2" />Share</Button></div></div></CardContent></Card>
+                <Card key={q.id}><CardContent className="p-6"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><h3 className="font-semibold">{q.number}</h3><p className="text-sm text-gray-600">{q.clientName}</p><p className="text-sm text-gray-600">{q.date}</p><p className="text-lg font-bold text-primary">MVR {q.total.toFixed(2)}</p></div><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => previewQuotation(q)}><Eye className="w-4 h-4 mr-2" />Preview</Button><Button size="sm" variant="outline" onClick={() => generateQuotationPDF(q)}><Download className="w-4 h-4 mr-2" />PDF</Button><Button size="sm" variant="outline" onClick={() => {navigator.clipboard.writeText(getShareableLink(q.id, 'quotation')); alert('Link copied!')}}><Share2 className="w-4 h-4 mr-2" />Share</Button></div></div></CardContent></Card>
               ))}
               {quotations.length === 0 && <Card><CardContent className="p-12 text-center"><p className="text-gray-600">No quotations yet</p></CardContent></Card>}
             </div>
@@ -1213,10 +1279,10 @@ export function AdminPanel() {
 
                   <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <div>
-                      <p className="text-sm text-gray-600">Subtotal: <span className="font-bold">${newInvoice.subtotal?.toFixed(2)}</span></p>
-                      <p className="text-sm text-gray-600">Tax: <span className="font-bold">${newInvoice.tax?.toFixed(2)}</span></p>
-                      <p className="text-sm text-gray-600">Paid: <span className="font-bold">${newInvoice.paidAmount?.toFixed(2)}</span></p>
-                      <p className="text-lg font-bold text-primary">Balance: ${(newInvoice.total || 0 - (newInvoice.paidAmount || 0)).toFixed(2)}</p>
+                      <p className="text-sm text-gray-600">Subtotal: <span className="font-bold">MVR {newInvoice.subtotal?.toFixed(2)}</span></p>
+                      <p className="text-sm text-gray-600">Tax: <span className="font-bold">MVR {newInvoice.tax?.toFixed(2)}</span></p>
+                      <p className="text-sm text-gray-600">Paid: <span className="font-bold">MVR {newInvoice.paidAmount?.toFixed(2)}</span></p>
+                      <p className="text-lg font-bold text-primary">Balance: MVR {(newInvoice.total || 0 - (newInvoice.paidAmount || 0)).toFixed(2)}</p>
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" onClick={() => setShowNewInvoice(false)}>Cancel</Button>
@@ -1236,12 +1302,13 @@ export function AdminPanel() {
                         <h3 className="font-semibold">{inv.number}</h3>
                         <p className="text-sm text-gray-600">{inv.clientName}</p>
                         <p className="text-sm text-gray-600">{inv.date} - Due: {inv.dueDate}</p>
-                        <p className="text-lg font-bold text-primary">${inv.total.toFixed(2)}</p>
-                        <p className="text-sm text-gray-600">Paid: ${inv.paidAmount.toFixed(2)} | Balance: ${(inv.total - inv.paidAmount).toFixed(2)}</p>
+                        <p className="text-lg font-bold text-primary">MVR {inv.total.toFixed(2)}</p>
+                        <p className="text-sm text-gray-600">Paid: MVR {inv.paidAmount.toFixed(2)} | Balance: MVR {(inv.total - inv.paidAmount).toFixed(2)}</p>
                         <span className={`inline-block px-2 py-1 rounded text-xs mt-2 ${inv.status === 'paid' ? 'bg-green-100 text-green-800' : inv.status === 'partial' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{inv.status.toUpperCase()}</span>
                       </div>
                       <div className="flex flex-col gap-2">
                         <div className="flex gap-2">
+                          <Button size="sm" variant="outline" onClick={() => previewInvoice(inv)}><Eye className="w-4 h-4 mr-2" />Preview</Button>
                           <Button size="sm" variant="outline" onClick={() => generateInvoicePDF(inv)}><Download className="w-4 h-4 mr-2" />PDF</Button>
                           <Button size="sm" variant="outline" onClick={() => {navigator.clipboard.writeText(getShareableLink(inv.id, 'invoice')); alert('Link copied!')}}><Share2 className="w-4 h-4 mr-2" />Share</Button>
                         </div>
@@ -1365,6 +1432,33 @@ export function AdminPanel() {
               ))}
               {services.length === 0 && <Card><CardContent className="p-12 text-center"><p className="text-gray-600">No services added yet</p></CardContent></Card>}
             </div>
+          </div>
+        )}
+
+        {/* PDF Preview Modal */}
+        {showPreview && previewData && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-4xl max-h-[90vh] overflow-auto">
+              <CardHeader className="flex justify-between items-center">
+                <h2 className="text-xl font-bold">PDF Preview - {previewType === 'quotation' ? 'Quotation' : 'Invoice'}</h2>
+                <Button variant="outline" size="sm" onClick={() => setShowPreview(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {previewUrl && (
+                  <iframe
+                    src={previewUrl}
+                    className="w-full h-[600px] border"
+                    title="PDF Preview"
+                  />
+                )}
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button variant="outline" onClick={() => setShowPreview(false)}>Close</Button>
+                  <Button onClick={downloadPDF}><Download className="w-4 h-4 mr-2" />Download PDF</Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>
