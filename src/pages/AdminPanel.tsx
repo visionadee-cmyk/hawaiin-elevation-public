@@ -860,6 +860,52 @@ export function AdminPanel() {
     })
   }
 
+  const addServiceToQuotation = (service: Service) => {
+    // Check if service already exists in items
+    const existingItem = newQuotation.items?.find(item => item.description === service.name)
+    
+    if (existingItem) {
+      // Remove if already exists (toggle behavior)
+      removeLineItem('quotation', existingItem.id)
+    } else {
+      // Add new item from service
+      const newItem: LineItem = {
+        id: Date.now().toString(),
+        description: service.name,
+        quantity: 1,
+        rate: service.price,
+        amount: service.price
+      }
+      setNewQuotation({
+        ...newQuotation,
+        items: [...(newQuotation.items || []), newItem]
+      })
+    }
+  }
+
+  const addServiceToInvoice = (service: Service) => {
+    // Check if service already exists in items
+    const existingItem = newInvoice.items?.find(item => item.description === service.name)
+    
+    if (existingItem) {
+      // Remove if already exists (toggle behavior)
+      removeLineItem('invoice', existingItem.id)
+    } else {
+      // Add new item from service
+      const newItem: LineItem = {
+        id: Date.now().toString(),
+        description: service.name,
+        quantity: 1,
+        rate: service.price,
+        amount: service.price
+      }
+      setNewInvoice({
+        ...newInvoice,
+        items: [...(newInvoice.items || []), newItem]
+      })
+    }
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
@@ -965,6 +1011,39 @@ export function AdminPanel() {
                   </div>
                   
                   <div>
+                    <Label>Select Services</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+                      {services.map((service) => (
+                        <div 
+                          key={service.id} 
+                          onClick={() => addServiceToQuotation(service)}
+                          className="cursor-pointer"
+                        >
+                          <Card 
+                            className={`transition-all hover:shadow-md ${
+                              newQuotation.items?.some(item => item.description === service.name) 
+                                ? 'border-2 border-primary-500 bg-primary-50' 
+                                : 'border border-gray-200'
+                            }`}
+                          >
+                            <CardContent className="p-3">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <h4 className="font-semibold text-sm">{service.name}</h4>
+                                  <p className="text-xs text-gray-600 mt-1">{service.description}</p>
+                                </div>
+                                <span className="text-sm font-bold text-primary">
+                                  {service.price.toLocaleString()} {service.currency}
+                                </span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
                     <Label>Items</Label>
                     {newQuotation.items?.map((item: LineItem) => (
                       <div key={item.id} className="flex gap-2 mb-2 items-end">
@@ -975,7 +1054,7 @@ export function AdminPanel() {
                         <Button size="sm" variant="danger" onClick={() => removeLineItem('quotation', item.id)}><Trash2 className="w-4 h-4" /></Button>
                       </div>
                     ))}
-                    <Button size="sm" variant="outline" onClick={() => addLineItem('quotation')} className="mt-2"><Plus className="w-4 h-4 mr-2" />Add Item</Button>
+                    <Button size="sm" variant="outline" onClick={() => addLineItem('quotation')} className="mt-2"><Plus className="w-4 h-4 mr-2" />Add Custom Item</Button>
                   </div>
 
                   <div><Label>Notes</Label><Input value={newQuotation.notes} onChange={(e) => setNewQuotation({...newQuotation, notes: e.target.value})} placeholder="Additional notes" /></div>
@@ -1027,6 +1106,39 @@ export function AdminPanel() {
                   </div>
                   
                   <div>
+                    <Label>Select Services</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+                      {services.map((service) => (
+                        <div 
+                          key={service.id} 
+                          onClick={() => addServiceToInvoice(service)}
+                          className="cursor-pointer"
+                        >
+                          <Card 
+                            className={`transition-all hover:shadow-md ${
+                              newInvoice.items?.some(item => item.description === service.name) 
+                                ? 'border-2 border-primary-500 bg-primary-50' 
+                                : 'border border-gray-200'
+                            }`}
+                          >
+                            <CardContent className="p-3">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <h4 className="font-semibold text-sm">{service.name}</h4>
+                                  <p className="text-xs text-gray-600 mt-1">{service.description}</p>
+                                </div>
+                                <span className="text-sm font-bold text-primary">
+                                  {service.price.toLocaleString()} {service.currency}
+                                </span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
                     <Label>Items</Label>
                     {newInvoice.items?.map((item: LineItem) => (
                       <div key={item.id} className="flex gap-2 mb-2 items-end">
@@ -1037,7 +1149,7 @@ export function AdminPanel() {
                         <Button size="sm" variant="danger" onClick={() => removeLineItem('invoice', item.id)}><Trash2 className="w-4 h-4" /></Button>
                       </div>
                     ))}
-                    <Button size="sm" variant="outline" onClick={() => addLineItem('invoice')} className="mt-2"><Plus className="w-4 h-4 mr-2" />Add Item</Button>
+                    <Button size="sm" variant="outline" onClick={() => addLineItem('invoice')} className="mt-2"><Plus className="w-4 h-4 mr-2" />Add Custom Item</Button>
                   </div>
 
                   <div><Label>Notes</Label><Input value={newInvoice.notes} onChange={(e) => setNewInvoice({...newInvoice, notes: e.target.value})} placeholder="Additional notes" /></div>
