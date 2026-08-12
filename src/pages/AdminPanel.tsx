@@ -70,7 +70,14 @@ export function AdminPanel() {
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<'dashboard' | 'quotations' | 'invoices' | 'company' | 'services'>('dashboard')
   const [companyInfo, setCompanyInfo] = useState({
-    name: '', logo: '', address: '', gstNumber: '', registryStamp: '', phone: '', email: ''
+    name: 'Hawaiin Elevation PLC',
+    logo: '/logo.jpeg',
+    address: '',
+    gstNumber: '',
+    registryStamp: '/stamp.png',
+    phone: '',
+    email: '',
+    signature: '/Abobakuru e signature.jpeg'
   })
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -1213,8 +1220,9 @@ export function AdminPanel() {
               <div><Label>Phone</Label><Input value={companyInfo.phone} onChange={(e) => setCompanyInfo({...companyInfo, phone: e.target.value})} /></div>
               <div><Label>Email</Label><Input value={companyInfo.email} onChange={(e) => setCompanyInfo({...companyInfo, email: e.target.value})} /></div>
               <div><Label>GST Number</Label><Input value={companyInfo.gstNumber} onChange={(e) => setCompanyInfo({...companyInfo, gstNumber: e.target.value})} /></div>
-              <div><Label>Logo URL</Label><Input value={companyInfo.logo} onChange={(e) => setCompanyInfo({...companyInfo, logo: e.target.value})} placeholder="https://example.com/logo.png" /></div>
-              <div><Label>Registry Stamp URL</Label><Input value={companyInfo.registryStamp} onChange={(e) => setCompanyInfo({...companyInfo, registryStamp: e.target.value})} placeholder="https://example.com/stamp.png" /></div>
+              <div><Label>Logo URL</Label><Input value={companyInfo.logo} onChange={(e) => setCompanyInfo({...companyInfo, logo: e.target.value})} placeholder="/logo.jpeg" /></div>
+              <div><Label>Registry Stamp URL</Label><Input value={companyInfo.registryStamp} onChange={(e) => setCompanyInfo({...companyInfo, registryStamp: e.target.value})} placeholder="/stamp.png" /></div>
+              <div><Label>Signature URL</Label><Input value={companyInfo.signature} onChange={(e) => setCompanyInfo({...companyInfo, signature: e.target.value})} placeholder="/Abobakuru e signature.jpeg" /></div>
               <Button onClick={saveCompanyInfo}>Save Company Information</Button>
             </CardContent>
           </Card>
