@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
-import { Lock, FileText, Receipt, CheckCircle, Share2, Download, Plus, Building2, LogOut, Trash2 } from 'lucide-react'
+import { Lock, FileText, Receipt, CheckCircle, Share2, Download, Plus, Building2, LogOut, Trash2, Package } from 'lucide-react'
 import jsPDF from 'jspdf'
 
 const ADMIN_PASSWORD = 'Adhu1447'
@@ -51,18 +51,31 @@ interface Invoice {
   notes: string
 }
 
+interface Service {
+  id: string
+  name: string
+  description: string
+  price: number
+  currency: string
+  period: string
+  features: string[]
+  popular: boolean
+}
+
 export function AdminPanel() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'quotations' | 'invoices' | 'company'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'quotations' | 'invoices' | 'company' | 'services'>('dashboard')
   const [companyInfo, setCompanyInfo] = useState({
     name: '', logo: '', address: '', gstNumber: '', registryStamp: '', phone: '', email: ''
   })
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [services, setServices] = useState<Service[]>([])
   const [showNewQuotation, setShowNewQuotation] = useState(false)
   const [showNewInvoice, setShowNewInvoice] = useState(false)
+  const [showNewService, setShowNewService] = useState(false)
 
   const [newQuotation, setNewQuotation] = useState<Quotation>({
     id: '', number: '', date: new Date().toISOString().split('T')[0], clientName: '', clientAddress: '',
@@ -73,6 +86,10 @@ export function AdminPanel() {
     id: '', number: '', date: new Date().toISOString().split('T')[0], dueDate: '', clientName: '',
     clientAddress: '', clientEmail: '', clientPhone: '', items: [], subtotal: 0, tax: 0, total: 0,
     paidAmount: 0, notes: '', status: 'draft'
+  })
+
+  const [newService, setNewService] = useState<Service>({
+    id: '', name: '', description: '', price: 0, currency: 'MVR', period: 'one-time', features: [], popular: false
   })
 
   useEffect(() => {
@@ -92,6 +109,9 @@ export function AdminPanel() {
 
     const savedInvoices = localStorage.getItem('invoices')
     if (savedInvoices) setInvoices(JSON.parse(savedInvoices) as Invoice[])
+
+    const savedServices = localStorage.getItem('services')
+    if (savedServices) setServices(JSON.parse(savedServices) as Service[])
   }
 
   const handleLogin = () => {
@@ -449,6 +469,52 @@ export function AdminPanel() {
     alert('Company information saved!')
   }
 
+  const saveService = () => {
+    const service: Service = {
+      ...newService,
+      id: Date.now().toString()
+    }
+    const updated = [...services, service]
+    setServices(updated)
+    localStorage.setItem('services', JSON.stringify(updated))
+    setShowNewService(false)
+    setNewService({
+      id: '', name: '', description: '', price: 0, currency: 'MVR', period: 'one-time', features: [], popular: false
+    })
+  }
+
+  const deleteService = (serviceId: string) => {
+    if (confirm('Are you sure you want to delete this service?')) {
+      const updated = services.filter(s => s.id !== serviceId)
+      setServices(updated)
+      localStorage.setItem('services', JSON.stringify(updated))
+    }
+  }
+
+  const addServiceFeature = () => {
+    setNewService({
+      ...newService,
+      features: [...newService.features, '']
+    })
+  }
+
+  const updateServiceFeature = (index: number, value: string) => {
+    const updatedFeatures = [...newService.features]
+    updatedFeatures[index] = value
+    setNewService({
+      ...newService,
+      features: updatedFeatures
+    })
+  }
+
+  const removeServiceFeature = (index: number) => {
+    const updatedFeatures = newService.features.filter((_, i) => i !== index)
+    setNewService({
+      ...newService,
+      features: updatedFeatures
+    })
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
@@ -514,6 +580,13 @@ export function AdminPanel() {
           >
             <Building2 className="w-4 h-4 mr-2" />
             Company
+          </Button>
+          <Button
+            variant={activeTab === 'services' ? 'primary' : 'ghost'}
+            onClick={() => setActiveTab('services')}
+          >
+            <Package className="w-4 h-4 mr-2" />
+            Services
           </Button>
         </div>
 
@@ -688,6 +761,84 @@ export function AdminPanel() {
               <Button onClick={saveCompanyInfo}>Save Company Information</Button>
             </CardContent>
           </Card>
+        )}
+
+        {activeTab === 'services' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Services</h2>
+              <Button onClick={() => setShowNewService(true)}><Plus className="w-4 h-4 mr-2" />Add Service</Button>
+            </div>
+
+            {showNewService && (
+              <Card className="mb-6">
+                <CardHeader><h3 className="text-lg font-bold">Add New Service</h3></CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><Label>Service Name *</Label><Input value={newService.name} onChange={(e) => setNewService({...newService, name: e.target.value})} placeholder="e.g., HRMS Starter" /></div>
+                    <div><Label>Price *</Label><Input type="number" value={newService.price} onChange={(e) => setNewService({...newService, price: parseFloat(e.target.value) || 0})} placeholder="10000" /></div>
+                    <div><Label>Currency</Label><Input value={newService.currency} onChange={(e) => setNewService({...newService, currency: e.target.value})} placeholder="MVR" /></div>
+                    <div><Label>Period</Label><Input value={newService.period} onChange={(e) => setNewService({...newService, period: e.target.value})} placeholder="one-time" /></div>
+                  </div>
+                  <div><Label>Description</Label><Input value={newService.description} onChange={(e) => setNewService({...newService, description: e.target.value})} placeholder="Perfect for small organizations" /></div>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="popular" checked={newService.popular} onChange={(e) => setNewService({...newService, popular: e.target.checked})} />
+                    <Label htmlFor="popular">Mark as Popular</Label>
+                  </div>
+                  <div>
+                    <Label>Features</Label>
+                    {newService.features.map((feature, index) => (
+                      <div key={index} className="flex gap-2 mb-2">
+                        <Input value={feature} onChange={(e) => updateServiceFeature(index, e.target.value)} placeholder="Feature description" />
+                        <Button size="sm" variant="danger" onClick={() => removeServiceFeature(index)}><Trash2 className="w-4 h-4" /></Button>
+                      </div>
+                    ))}
+                    <Button size="sm" variant="outline" onClick={addServiceFeature}><Plus className="w-4 h-4 mr-2" />Add Feature</Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setShowNewService(false)}>Cancel</Button>
+                    <Button onClick={saveService}>Save Service</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {services.map((service) => (
+                <Card key={service.id} className={service.popular ? 'border-2 border-primary-500' : ''}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-lg font-bold">{service.name}</h3>
+                        <p className="text-sm text-gray-600">{service.description}</p>
+                      </div>
+                      {service.popular && <span className="bg-primary-500 text-white text-xs px-2 py-1 rounded">Popular</span>}
+                    </div>
+                    <div className="mt-4">
+                      <span className="text-2xl font-bold">{service.price.toLocaleString()}</span>
+                      <span className="text-gray-600"> {service.currency}</span>
+                      <p className="text-sm text-primary-600">{service.period}</p>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2 mb-4">
+                      {service.features.map((feature, index) => (
+                        <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button variant="danger" size="sm" onClick={() => deleteService(service.id)} className="w-full">
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Service
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+              {services.length === 0 && <Card><CardContent className="p-12 text-center"><p className="text-gray-600">No services added yet</p></CardContent></Card>}
+            </div>
+          </div>
         )}
       </div>
     </div>
