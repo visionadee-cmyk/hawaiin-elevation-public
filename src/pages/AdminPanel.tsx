@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
-import { Lock, FileText, Receipt, CheckCircle, Share2, Download, Plus, Building2, LogOut, Trash2, Package } from 'lucide-react'
+import { Lock, FileText, Receipt, CheckCircle, Share2, Download, Plus, Building2, LogOut, Trash2, Package, Edit } from 'lucide-react'
 import jsPDF from 'jspdf'
+import { db } from '../lib/firebase'
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore'
 
 const ADMIN_PASSWORD = 'Adhu1447'
 
@@ -76,6 +78,7 @@ export function AdminPanel() {
   const [showNewQuotation, setShowNewQuotation] = useState(false)
   const [showNewInvoice, setShowNewInvoice] = useState(false)
   const [showNewService, setShowNewService] = useState(false)
+  const [editingService, setEditingService] = useState<Service | null>(null)
 
   const [newQuotation, setNewQuotation] = useState<Quotation>({
     id: '', number: '', date: new Date().toISOString().split('T')[0], clientName: '', clientAddress: '',
@@ -100,7 +103,7 @@ export function AdminPanel() {
     loadData()
   }, [])
 
-  const loadData = () => {
+  const loadData = async () => {
     const savedCompany = localStorage.getItem('companyInfo')
     if (savedCompany) setCompanyInfo(JSON.parse(savedCompany))
 
@@ -110,8 +113,295 @@ export function AdminPanel() {
     const savedInvoices = localStorage.getItem('invoices')
     if (savedInvoices) setInvoices(JSON.parse(savedInvoices) as Invoice[])
 
-    const savedServices = localStorage.getItem('services')
-    if (savedServices) setServices(JSON.parse(savedServices) as Service[])
+    // Load services from Firebase
+    try {
+      const servicesQuery = query(collection(db, 'services'), orderBy('name'))
+      const servicesSnapshot = await getDocs(servicesQuery)
+      const servicesData = servicesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Service[]
+      
+      if (servicesData.length > 0) {
+        setServices(servicesData)
+      } else {
+        // Pre-populate with HRMS services if none exist
+        await initializeDefaultServices()
+      }
+    } catch (error) {
+      console.error('Error loading services from Firebase:', error)
+      // Fallback to localStorage
+      const savedServices = localStorage.getItem('services')
+      if (savedServices) {
+        setServices(JSON.parse(savedServices) as Service[])
+      } else {
+        await initializeDefaultServices()
+      }
+    }
+  }
+
+  const initializeDefaultServices = async () => {
+    const initialServices: Service[] = [
+      {
+        id: 'hrms-starter',
+        name: 'HRMS Starter',
+        description: 'Perfect for small organizations',
+        price: 10000,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          'Up to 25 employees',
+          'Basic employee management',
+          'Attendance tracking',
+          'Leave management',
+          'Basic reports',
+          'Email support',
+          '5GB storage',
+          '3 months post-sales customization'
+        ]
+      },
+      {
+        id: 'hrms-professional',
+        name: 'HRMS Professional',
+        description: 'Ideal for growing organizations',
+        price: 20000,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: true,
+        features: [
+          'Up to 100 employees',
+          'Full employee management',
+          'Attendance with biometric sync',
+          'Leave & overtime management',
+          'Payroll processing',
+          'Advanced reports & analytics',
+          'Expatriate management',
+          'Driving licence tracking',
+          'Council assets management',
+          'Priority email support',
+          '25GB storage',
+          'Mobile app access',
+          '6 months post-sales customization'
+        ]
+      },
+      {
+        id: 'hrms-enterprise',
+        name: 'HRMS Enterprise',
+        description: 'For large organizations',
+        price: 30000,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          'Unlimited employees',
+          'Complete HRMS suite',
+          'Multi-location support',
+          'Advanced biometric integration',
+          'Custom workflows',
+          'API access',
+          'White-label solution',
+          'Dedicated account manager',
+          '24/7 phone support',
+          'Unlimited storage',
+          'On-premise deployment option',
+          'Custom integrations',
+          'Training & onboarding',
+          'SLA guarantee',
+          '1 year post-sales customization'
+        ]
+      },
+      {
+        id: 'cv-builder',
+        name: 'CV Builder',
+        description: 'Professional CV creation with multiple templates',
+        price: 500,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          'Multiple professional templates',
+          'AI-powered content suggestions',
+          'PDF export',
+          'Print-ready format',
+          'Custom sections',
+          'Real-time preview',
+          'Mobile responsive'
+        ]
+      },
+      {
+        id: 'cover-letter',
+        name: 'Cover Letter Builder',
+        description: 'AI-powered cover letter generation',
+        price: 300,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          'AI-powered generation',
+          'Multiple templates',
+          'Customizable tone',
+          'PDF export',
+          'CV upload integration',
+          'Real-time preview'
+        ]
+      },
+      {
+        id: 'portfolio-builder',
+        name: 'Portfolio Builder',
+        description: 'Create stunning online portfolios',
+        price: 750,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          'Modern templates',
+          'Drag & drop builder',
+          'Custom domains',
+          'SEO optimization',
+          'Analytics dashboard',
+          'Image gallery',
+          'Contact forms'
+        ]
+      },
+      {
+        id: 'personal-website',
+        name: 'Personal Website Builder',
+        description: 'Build your personal brand online',
+        price: 1500,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          'Professional templates',
+          'Blog integration',
+          'Social media links',
+          'Contact forms',
+          'SEO tools',
+          'Custom branding',
+          'Mobile responsive'
+        ]
+      },
+      {
+        id: 'company-website',
+        name: 'Company Website Builder',
+        description: 'Professional business websites',
+        price: 3000,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          'Business templates',
+          'E-commerce ready',
+          'Team pages',
+          'Testimonials',
+          'Service showcase',
+          'Contact management',
+          'Analytics integration'
+        ]
+      },
+      {
+        id: 'company-profile',
+        name: 'Company Profile Builder',
+        description: 'Create professional company profiles',
+        price: 2000,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          'Professional layouts',
+          'Company history',
+          'Team showcase',
+          'Achievements',
+          'PDF export',
+          'Print-ready',
+          'Custom branding'
+        ]
+      },
+      {
+        id: 'business-proposal',
+        name: 'Business Proposal Builder',
+        description: 'Win more clients with professional proposals',
+        price: 1000,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          'Proposal templates',
+          'Pricing tables',
+          'Contract integration',
+          'Digital signatures',
+          'PDF export',
+          'Client management',
+          'Tracking analytics'
+        ]
+      },
+      {
+        id: 'job-email',
+        name: 'Job Application Email Builder',
+        description: 'Professional job application emails',
+        price: 200,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          'Email templates',
+          'AI suggestions',
+          'Customizable sections',
+          'Professional tone',
+          'Tracking',
+          'Follow-up reminders'
+        ]
+      },
+      {
+        id: 'graphic-design',
+        name: 'Graphic Design Tools',
+        description: 'Professional design tools for everyone',
+        price: 800,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          'Design templates',
+          'Image editing',
+          'Logo creator',
+          'Social media graphics',
+          'Export options',
+          'Brand kit',
+          'Collaboration tools'
+        ]
+      },
+      {
+        id: '3d-services',
+        name: '3D Services',
+        description: 'Professional 3D modeling and rendering',
+        price: 5000,
+        currency: 'MVR',
+        period: 'one-time',
+        popular: false,
+        features: [
+          '3D modeling',
+          'Rendering services',
+          'Animation',
+          'Product visualization',
+          'High-quality output',
+          'Multiple formats',
+          'Revisions included'
+        ]
+      }
+    ]
+    
+    setServices(initialServices)
+    localStorage.setItem('services', JSON.stringify(initialServices))
+    
+    // Also save to Firebase
+    try {
+      for (const service of initialServices) {
+        await addDoc(collection(db, 'services'), service)
+      }
+    } catch (error) {
+      console.error('Error saving default services to Firebase:', error)
+    }
   }
 
   const handleLogin = () => {
@@ -469,26 +759,81 @@ export function AdminPanel() {
     alert('Company information saved!')
   }
 
-  const saveService = () => {
-    const service: Service = {
-      ...newService,
-      id: Date.now().toString()
+  const saveService = async () => {
+    try {
+      const serviceData = {
+        name: newService.name,
+        description: newService.description,
+        price: newService.price,
+        currency: newService.currency,
+        period: newService.period,
+        features: newService.features,
+        popular: newService.popular
+      }
+
+      if (editingService) {
+        // Update existing service
+        const serviceRef = doc(db, 'services', editingService.id)
+        await updateDoc(serviceRef, serviceData)
+        
+        const updated = services.map(s => 
+          s.id === editingService.id 
+            ? { ...s, ...serviceData } 
+            : s
+        )
+        setServices(updated)
+        setEditingService(null)
+      } else {
+        // Add new service
+        const docRef = await addDoc(collection(db, 'services'), serviceData)
+        const newServiceWithId: Service = {
+          id: docRef.id,
+          ...serviceData
+        }
+        const updated = [...services, newServiceWithId]
+        setServices(updated)
+      }
+
+      // Update localStorage as backup
+      localStorage.setItem('services', JSON.stringify(services))
+      
+      setShowNewService(false)
+      setNewService({
+        id: '', name: '', description: '', price: 0, currency: 'MVR', period: 'one-time', features: [], popular: false
+      })
+    } catch (error) {
+      console.error('Error saving service to Firebase:', error)
+      alert('Error saving service. Please try again.')
     }
-    const updated = [...services, service]
-    setServices(updated)
-    localStorage.setItem('services', JSON.stringify(updated))
-    setShowNewService(false)
-    setNewService({
-      id: '', name: '', description: '', price: 0, currency: 'MVR', period: 'one-time', features: [], popular: false
-    })
   }
 
-  const deleteService = (serviceId: string) => {
+  const deleteService = async (serviceId: string) => {
     if (confirm('Are you sure you want to delete this service?')) {
-      const updated = services.filter(s => s.id !== serviceId)
-      setServices(updated)
-      localStorage.setItem('services', JSON.stringify(updated))
+      try {
+        await deleteDoc(doc(db, 'services', serviceId))
+        const updated = services.filter(s => s.id !== serviceId)
+        setServices(updated)
+        localStorage.setItem('services', JSON.stringify(updated))
+      } catch (error) {
+        console.error('Error deleting service from Firebase:', error)
+        alert('Error deleting service. Please try again.')
+      }
     }
+  }
+
+  const editService = (service: Service) => {
+    setEditingService(service)
+    setNewService({
+      id: service.id,
+      name: service.name,
+      description: service.description,
+      price: service.price,
+      currency: service.currency,
+      period: service.period,
+      features: [...service.features],
+      popular: service.popular
+    })
+    setShowNewService(true)
   }
 
   const addServiceFeature = () => {
@@ -772,7 +1117,7 @@ export function AdminPanel() {
 
             {showNewService && (
               <Card className="mb-6">
-                <CardHeader><h3 className="text-lg font-bold">Add New Service</h3></CardHeader>
+                <CardHeader><h3 className="text-lg font-bold">{editingService ? 'Edit Service' : 'Add New Service'}</h3></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><Label>Service Name *</Label><Input value={newService.name} onChange={(e) => setNewService({...newService, name: e.target.value})} placeholder="e.g., HRMS Starter" /></div>
@@ -796,8 +1141,14 @@ export function AdminPanel() {
                     <Button size="sm" variant="outline" onClick={addServiceFeature}><Plus className="w-4 h-4 mr-2" />Add Feature</Button>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setShowNewService(false)}>Cancel</Button>
-                    <Button onClick={saveService}>Save Service</Button>
+                    <Button variant="outline" onClick={() => {
+                      setShowNewService(false)
+                      setEditingService(null)
+                      setNewService({
+                        id: '', name: '', description: '', price: 0, currency: 'MVR', period: 'one-time', features: [], popular: false
+                      })
+                    }}>Cancel</Button>
+                    <Button onClick={saveService}>{editingService ? 'Update Service' : 'Save Service'}</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -829,10 +1180,16 @@ export function AdminPanel() {
                         </li>
                       ))}
                     </ul>
-                    <Button variant="danger" size="sm" onClick={() => deleteService(service.id)} className="w-full">
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete Service
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => editService(service)} className="flex-1">
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={() => deleteService(service.id)} className="flex-1">
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
