@@ -118,11 +118,37 @@ export function AdminPanel() {
     const savedCompany = localStorage.getItem('companyInfo')
     if (savedCompany) setCompanyInfo(JSON.parse(savedCompany))
 
-    const savedQuotations = localStorage.getItem('quotations')
-    if (savedQuotations) setQuotations(JSON.parse(savedQuotations) as Quotation[])
+    // Load quotations from Firebase
+    try {
+      const quotationsQuery = query(collection(db, 'quotations'), orderBy('date', 'desc'))
+      const quotationsSnapshot = await getDocs(quotationsQuery)
+      const quotationsData = quotationsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Quotation[]
+      setQuotations(quotationsData)
+      localStorage.setItem('quotations', JSON.stringify(quotationsData))
+    } catch (error) {
+      console.error('Error loading quotations from Firebase:', error)
+      const savedQuotations = localStorage.getItem('quotations')
+      if (savedQuotations) setQuotations(JSON.parse(savedQuotations) as Quotation[])
+    }
 
-    const savedInvoices = localStorage.getItem('invoices')
-    if (savedInvoices) setInvoices(JSON.parse(savedInvoices) as Invoice[])
+    // Load invoices from Firebase
+    try {
+      const invoicesQuery = query(collection(db, 'invoices'), orderBy('date', 'desc'))
+      const invoicesSnapshot = await getDocs(invoicesQuery)
+      const invoicesData = invoicesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Invoice[]
+      setInvoices(invoicesData)
+      localStorage.setItem('invoices', JSON.stringify(invoicesData))
+    } catch (error) {
+      console.error('Error loading invoices from Firebase:', error)
+      const savedInvoices = localStorage.getItem('invoices')
+      if (savedInvoices) setInvoices(JSON.parse(savedInvoices) as Invoice[])
+    }
 
     // Load services from Firebase
     try {
@@ -505,7 +531,7 @@ export function AdminPanel() {
     }
   }
 
-  const saveQuotation = () => {
+  const saveQuotation = async () => {
     const quotation: Quotation = {
       ...newQuotation,
       id: Date.now().toString(),
@@ -515,6 +541,14 @@ export function AdminPanel() {
     const updated = [...quotations, quotation]
     setQuotations(updated)
     localStorage.setItem('quotations', JSON.stringify(updated))
+    
+    // Save to Firebase
+    try {
+      await addDoc(collection(db, 'quotations'), quotation)
+    } catch (error) {
+      console.error('Error saving quotation to Firebase:', error)
+    }
+    
     setShowNewQuotation(false)
     setNewQuotation({
       id: '', number: '', date: new Date().toISOString().split('T')[0], clientName: '', clientAddress: '',
@@ -522,7 +556,7 @@ export function AdminPanel() {
     })
   }
 
-  const saveInvoice = () => {
+  const saveInvoice = async () => {
     const invoice: Invoice = {
       ...newInvoice,
       id: Date.now().toString(),
@@ -532,6 +566,14 @@ export function AdminPanel() {
     const updated = [...invoices, invoice]
     setInvoices(updated)
     localStorage.setItem('invoices', JSON.stringify(updated))
+    
+    // Save to Firebase
+    try {
+      await addDoc(collection(db, 'invoices'), invoice)
+    } catch (error) {
+      console.error('Error saving invoice to Firebase:', error)
+    }
+    
     setShowNewInvoice(false)
     setNewInvoice({
       id: '', number: '', date: new Date().toISOString().split('T')[0], dueDate: '', clientName: '',
