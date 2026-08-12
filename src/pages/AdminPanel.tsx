@@ -868,7 +868,7 @@ export function AdminPanel() {
     setPreviewType('quotation')
     setPreviewData(quotation)
     const url = await generateQuotationPDF(quotation, true)
-    setPreviewUrl(url)
+    setPreviewUrl(url || null)
     setShowPreview(true)
   }
 
@@ -876,7 +876,7 @@ export function AdminPanel() {
     setPreviewType('invoice')
     setPreviewData(invoice)
     const url = await generateInvoicePDF(invoice, true)
-    setPreviewUrl(url)
+    setPreviewUrl(url || null)
     setShowPreview(true)
   }
 
