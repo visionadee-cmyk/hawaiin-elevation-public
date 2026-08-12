@@ -553,8 +553,12 @@ export function AdminPanel() {
     let y = 20
 
     if (companyInfo.logo) {
-      doc.addImage(companyInfo.logo, 'PNG', 20, y, 40, 40)
-      y += 50
+      try {
+        doc.addImage(companyInfo.logo, 'JPEG', 20, y, 40, 40)
+        y += 50
+      } catch (e) {
+        console.error('Error loading logo:', e)
+      }
     }
 
     doc.setFontSize(20)
@@ -643,8 +647,23 @@ export function AdminPanel() {
       })
     }
 
+    y += 20
     if (companyInfo.registryStamp) {
-      doc.addImage(companyInfo.registryStamp, 'PNG', 140, y - 20, 40, 40)
+      try {
+        doc.addImage(companyInfo.registryStamp, 'PNG', 140, y - 20, 40, 40)
+      } catch (e) {
+        console.error('Error loading stamp:', e)
+      }
+    }
+
+    if (companyInfo.signature) {
+      try {
+        doc.addImage(companyInfo.signature, 'JPEG', 20, y, 50, 25)
+        doc.setFontSize(10)
+        doc.text('Authorized Signature', 20, y + 30)
+      } catch (e) {
+        console.error('Error loading signature:', e)
+      }
     }
 
     doc.save(`Quotation-${quotation.number}.pdf`)
@@ -655,8 +674,12 @@ export function AdminPanel() {
     let y = 20
 
     if (companyInfo.logo) {
-      doc.addImage(companyInfo.logo, 'PNG', 20, y, 40, 40)
-      y += 50
+      try {
+        doc.addImage(companyInfo.logo, 'JPEG', 20, y, 40, 40)
+        y += 50
+      } catch (e) {
+        console.error('Error loading logo:', e)
+      }
     }
 
     doc.setFontSize(20)
@@ -735,7 +758,7 @@ export function AdminPanel() {
     doc.text(`$${invoice.paidAmount.toFixed(2)}`, 170, y)
     y += 7
     doc.setFontSize(14)
-    doc.text('Balance Due:', 130, y)
+    doc.text('Balance:', 130, y)
     doc.text(`$${(invoice.total - invoice.paidAmount).toFixed(2)}`, 170, y)
     y += 15
 
@@ -750,8 +773,23 @@ export function AdminPanel() {
       })
     }
 
+    y += 20
     if (companyInfo.registryStamp) {
-      doc.addImage(companyInfo.registryStamp, 'PNG', 140, y - 20, 40, 40)
+      try {
+        doc.addImage(companyInfo.registryStamp, 'PNG', 140, y - 20, 40, 40)
+      } catch (e) {
+        console.error('Error loading stamp:', e)
+      }
+    }
+
+    if (companyInfo.signature) {
+      try {
+        doc.addImage(companyInfo.signature, 'JPEG', 20, y, 50, 25)
+        doc.setFontSize(10)
+        doc.text('Authorized Signature', 20, y + 30)
+      } catch (e) {
+        console.error('Error loading signature:', e)
+      }
     }
 
     doc.save(`Invoice-${invoice.number}.pdf`)
@@ -883,9 +921,15 @@ export function AdminPanel() {
         rate: service.price,
         amount: service.price
       }
+      const updatedItems = [...(newQuotation.items || []), newItem]
+      const subtotal = updatedItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0)
+      const total = subtotal + newQuotation.tax
+      
       setNewQuotation({
         ...newQuotation,
-        items: [...(newQuotation.items || []), newItem]
+        items: updatedItems,
+        subtotal,
+        total
       })
     }
   }
@@ -906,9 +950,15 @@ export function AdminPanel() {
         rate: service.price,
         amount: service.price
       }
+      const updatedItems = [...(newInvoice.items || []), newItem]
+      const subtotal = updatedItems.reduce((sum, item) => sum + (item.quantity * item.rate), 0)
+      const total = subtotal + newInvoice.tax
+      
       setNewInvoice({
         ...newInvoice,
-        items: [...(newInvoice.items || []), newItem]
+        items: updatedItems,
+        subtotal,
+        total
       })
     }
   }
