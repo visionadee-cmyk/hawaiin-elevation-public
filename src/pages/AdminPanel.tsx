@@ -1280,12 +1280,12 @@ Terms:
       // Company name - white text in header
       doc.setTextColor(255, 255, 255)
       doc.setFontSize(20)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text(companyInfo.name, 60, y + 15)
       
       // Company address - smaller white text below name
       doc.setFontSize(9)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       doc.text(companyInfo.address, 60, y + 22)
       doc.text(`Phone: ${companyInfo.phone} | Email: ${companyInfo.email}`, 60, y + 27)
       doc.text(`GST: ${companyInfo.gstNumber}`, 60, y + 32)
@@ -1296,7 +1296,7 @@ Terms:
 
       // Quotation header - modern design
       doc.setFontSize(24)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text('QUOTATION', 15, y)
       y += 12
 
@@ -1306,7 +1306,7 @@ Terms:
       doc.rect(120, y - 8, 75, 25)
       
       doc.setFontSize(10)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       doc.text(`Quotation #: ${quotation.number}`, 125, y + 2)
       doc.text(`Date: ${quotation.date}`, 125, y + 8)
       doc.text(`Status: ${quotation.status.toUpperCase()}`, 125, y + 14)
@@ -1314,12 +1314,12 @@ Terms:
 
       // Bill To section
       doc.setFontSize(12)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text('Bill To:', 15, y)
       y += 8
 
       doc.setFontSize(10)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       doc.text(quotation.clientName, 15, y)
       y += 6
       doc.text(quotation.clientAddress, 15, y)
@@ -1332,7 +1332,7 @@ Terms:
       doc.rect(15, y - 5, 180, 10, 'F')
       
       doc.setFontSize(10)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text('Description', 15, y)
       doc.text('Qty', 120, y)
       doc.text('Rate', 140, y)
@@ -1345,7 +1345,7 @@ Terms:
 
       quotation.items.forEach(item => {
         doc.setFontSize(9)
-        doc.setFont(undefined, 'normal')
+        doc.setFont('helvetica', 'normal')
         const descLines = doc.splitTextToSize(item.description, 100)
         descLines.forEach((line: string, i: number) => {
           doc.text(line, 15, y + (i * 5))
@@ -1365,7 +1365,7 @@ Terms:
       doc.rect(110, y - 5, 85, 30, 'F')
       
       doc.setFontSize(10)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       doc.text('Subtotal:', 115, y + 2)
       doc.text(`MVR ${quotation.subtotal.toFixed(2)}`, 175, y + 2)
       y += 7
@@ -1373,20 +1373,20 @@ Terms:
       doc.text(`MVR ${quotation.tax.toFixed(2)}`, 175, y)
       y += 8
       doc.setFontSize(12)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text('Total:', 115, y)
       doc.text(`MVR ${quotation.total.toFixed(2)}`, 175, y)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       y += 15
 
       // Notes section
       if (quotation.notes) {
         doc.setFontSize(10)
-        doc.setFont(undefined, 'bold')
+        doc.setFont('helvetica', 'bold')
         doc.text('Notes:', 15, y)
         y += 6
         doc.setFontSize(9)
-        doc.setFont(undefined, 'normal')
+        doc.setFont('helvetica', 'normal')
         const noteLines = doc.splitTextToSize(quotation.notes, 170)
         noteLines.forEach((line: string) => {
           doc.text(line, 15, y)
@@ -1425,10 +1425,10 @@ Terms:
       }
       
       doc.setFontSize(9)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text(signerName, 15, y + 5)
       doc.setFontSize(8)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       doc.text(signerTitle, 15, y + 10)
 
       if (companyInfo.registryStamp) {
@@ -1487,12 +1487,12 @@ Terms:
       // Company name - white text in header
       doc.setTextColor(255, 255, 255)
       doc.setFontSize(20)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text(companyInfo.name, 60, y + 15)
       
       // Company address - smaller white text below name
       doc.setFontSize(9)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       doc.text(companyInfo.address, 60, y + 22)
       doc.text(`Phone: ${companyInfo.phone} | Email: ${companyInfo.email}`, 60, y + 27)
       doc.text(`GST: ${companyInfo.gstNumber}`, 60, y + 32)
@@ -1503,7 +1503,7 @@ Terms:
 
       // Invoice header - modern design
       doc.setFontSize(24)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text('INVOICE', 15, y)
       y += 12
 
@@ -1513,7 +1513,7 @@ Terms:
       doc.rect(120, y - 8, 75, 32)
       
       doc.setFontSize(10)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       doc.text(`Invoice #: ${invoice.number}`, 125, y + 2)
       doc.text(`Date: ${invoice.date}`, 125, y + 8)
       doc.text(`Due Date: ${invoice.dueDate}`, 125, y + 14)
@@ -1522,12 +1522,12 @@ Terms:
 
       // Bill To section
       doc.setFontSize(12)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text('Bill To:', 15, y)
       y += 8
 
       doc.setFontSize(10)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       doc.text(invoice.clientName, 15, y)
       y += 6
       doc.text(invoice.clientAddress, 15, y)
@@ -1540,7 +1540,7 @@ Terms:
       doc.rect(15, y - 5, 180, 10, 'F')
       
       doc.setFontSize(10)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text('Description', 15, y)
       doc.text('Qty', 120, y)
       doc.text('Rate', 140, y)
@@ -1553,7 +1553,7 @@ Terms:
 
       invoice.items.forEach(item => {
         doc.setFontSize(9)
-        doc.setFont(undefined, 'normal')
+        doc.setFont('helvetica', 'normal')
         const descLines = doc.splitTextToSize(item.description, 100)
         descLines.forEach((line: string, i: number) => {
           doc.text(line, 15, y + (i * 5))
@@ -1573,7 +1573,7 @@ Terms:
       doc.rect(110, y - 5, 85, 40, 'F')
       
       doc.setFontSize(10)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       doc.text('Subtotal:', 115, y + 2)
       doc.text(`MVR ${invoice.subtotal.toFixed(2)}`, 175, y + 2)
       y += 7
@@ -1584,20 +1584,20 @@ Terms:
       doc.text(`MVR ${invoice.paidAmount.toFixed(2)}`, 175, y)
       y += 8
       doc.setFontSize(12)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text('Balance:', 115, y)
       doc.text(`MVR ${(invoice.total - invoice.paidAmount).toFixed(2)}`, 175, y)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       y += 15
 
       // Notes section
       if (invoice.notes) {
         doc.setFontSize(10)
-        doc.setFont(undefined, 'bold')
+        doc.setFont('helvetica', 'bold')
         doc.text('Notes:', 15, y)
         y += 6
         doc.setFontSize(9)
-        doc.setFont(undefined, 'normal')
+        doc.setFont('helvetica', 'normal')
         const noteLines = doc.splitTextToSize(invoice.notes, 170)
         noteLines.forEach((line: string) => {
           doc.text(line, 15, y)
@@ -1622,10 +1622,10 @@ Terms:
       }
       
       doc.setFontSize(9)
-      doc.setFont(undefined, 'bold')
+      doc.setFont('helvetica', 'bold')
       doc.text(companyInfo.managingDirector || 'Aboobakuru Gasim', 15, y + 5)
       doc.setFontSize(8)
-      doc.setFont(undefined, 'normal')
+      doc.setFont('helvetica', 'normal')
       doc.text('Managing Director', 15, y + 10)
 
       if (companyInfo.registryStamp) {
