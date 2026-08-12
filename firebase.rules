@@ -119,5 +119,41 @@ service cloud.firestore {
       allow write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow create: if isSignedIn();
     }
+
+    // Services collection - public read, authenticated write (for admin panel)
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Quotations collection - public read, authenticated write (for admin panel)
+    match /quotations/{quotationId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Invoices collection - public read, authenticated write (for admin panel)
+    match /invoices/{invoiceId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Customers collection - public read, authenticated write (for admin panel)
+    match /customers/{customerId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Terms collection - public read, authenticated write (for admin panel)
+    match /terms/{termId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Directors collection - public read, authenticated write (for admin panel)
+    match /directors/{directorId} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }
