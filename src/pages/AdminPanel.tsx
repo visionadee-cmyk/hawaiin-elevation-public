@@ -6,7 +6,7 @@ import { Label } from '../components/ui/Label'
 import { Lock, FileText, Receipt, CheckCircle, Share2, Download, Plus, Building2, LogOut, Trash2, Package, Edit, Eye, X } from 'lucide-react'
 import jsPDF from 'jspdf'
 import { db } from '../lib/firebase'
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, where } from 'firebase/firestore'
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, where, getDoc, setDoc } from 'firebase/firestore'
 
 const ADMIN_PASSWORD = 'Adhu1447'
 
@@ -33,6 +33,7 @@ interface Quotation {
   notes: string
   status: 'draft' | 'sent' | 'accepted' | 'rejected'
   directorId?: string
+  termsId?: string
 }
 
 interface Invoice {
@@ -123,6 +124,7 @@ export function AdminPanel() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
   const [editingTerm, setEditingTerm] = useState<TermsAndConditions | null>(null)
   const [editingDirector, setEditingDirector] = useState<Director | null>(null)
+  const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [previewType, setPreviewType] = useState<'quotation' | 'invoice'>('quotation')
   const [previewData, setPreviewData] = useState<Quotation | Invoice | null>(null)
@@ -132,7 +134,7 @@ export function AdminPanel() {
 
   const [newQuotation, setNewQuotation] = useState<Quotation>({
     id: '', number: '', date: new Date().toISOString().split('T')[0], clientName: '', clientAddress: '',
-    clientEmail: '', clientPhone: '', items: [], subtotal: 0, tax: 0, total: 0, notes: '', status: 'draft', directorId: ''
+    clientEmail: '', clientPhone: '', items: [], subtotal: 0, tax: 0, total: 0, notes: '', status: 'draft', directorId: '', termsId: ''
   })
 
   const [newInvoice, setNewInvoice] = useState<Invoice>({
@@ -166,8 +168,16 @@ export function AdminPanel() {
   }, [])
 
   const loadData = async () => {
-    const savedCompany = localStorage.getItem('companyInfo')
-    if (savedCompany) setCompanyInfo(JSON.parse(savedCompany))
+    // Load company info from Firebase
+    try {
+      const companyDoc = await getDoc(doc(db, 'company', 'info'))
+      if (companyDoc.exists()) {
+        const companyData = companyDoc.data()
+        setCompanyInfo(companyData as any)
+      }
+    } catch (error) {
+      console.error('Error loading company info from Firebase:', error)
+    }
 
     // Load quotations from Firebase
     try {
@@ -178,11 +188,8 @@ export function AdminPanel() {
         ...doc.data()
       })) as Quotation[]
       setQuotations(quotationsData)
-      localStorage.setItem('quotations', JSON.stringify(quotationsData))
     } catch (error) {
       console.error('Error loading quotations from Firebase:', error)
-      const savedQuotations = localStorage.getItem('quotations')
-      if (savedQuotations) setQuotations(JSON.parse(savedQuotations) as Quotation[])
     }
 
     // Load invoices from Firebase
@@ -194,11 +201,8 @@ export function AdminPanel() {
         ...doc.data()
       })) as Invoice[]
       setInvoices(invoicesData)
-      localStorage.setItem('invoices', JSON.stringify(invoicesData))
     } catch (error) {
       console.error('Error loading invoices from Firebase:', error)
-      const savedInvoices = localStorage.getItem('invoices')
-      if (savedInvoices) setInvoices(JSON.parse(savedInvoices) as Invoice[])
     }
 
     // Load services from Firebase
@@ -213,18 +217,11 @@ export function AdminPanel() {
       if (servicesData.length > 0) {
         setServices(servicesData)
       } else {
-        // Pre-populate with HRMS services if none exist
         await initializeDefaultServices()
       }
     } catch (error) {
       console.error('Error loading services from Firebase:', error)
-      // Fallback to localStorage
-      const savedServices = localStorage.getItem('services')
-      if (savedServices) {
-        setServices(JSON.parse(savedServices) as Service[])
-      } else {
-        await initializeDefaultServices()
-      }
+      await initializeDefaultServices()
     }
 
     // Load customers from Firebase
@@ -236,13 +233,8 @@ export function AdminPanel() {
         ...doc.data()
       })) as Customer[]
       setCustomers(customersData)
-      localStorage.setItem('customers', JSON.stringify(customersData))
     } catch (error) {
       console.error('Error loading customers from Firebase:', error)
-      const savedCustomers = localStorage.getItem('customers')
-      if (savedCustomers) {
-        setCustomers(JSON.parse(savedCustomers) as Customer[])
-      }
     }
 
     // Load directors from Firebase
@@ -261,12 +253,7 @@ export function AdminPanel() {
       }
     } catch (error) {
       console.error('Error loading directors from Firebase:', error)
-      const savedDirectors = localStorage.getItem('directors')
-      if (savedDirectors) {
-        setDirectors(JSON.parse(savedDirectors) as Director[])
-      } else {
-        await initializeDefaultDirectors()
-      }
+      await initializeDefaultDirectors()
     }
 
     // Load terms from Firebase
@@ -285,12 +272,7 @@ export function AdminPanel() {
       }
     } catch (error) {
       console.error('Error loading terms from Firebase:', error)
-      const savedTerms = localStorage.getItem('terms')
-      if (savedTerms) {
-        setTerms(JSON.parse(savedTerms) as TermsAndConditions[])
-      } else {
-        await initializeDefaultTerms()
-      }
+      await initializeDefaultTerms()
     }
   }
 
@@ -546,7 +528,6 @@ export function AdminPanel() {
     ]
     
     setServices(initialServices)
-    localStorage.setItem('services', JSON.stringify(initialServices))
     
     // Also save to Firebase (only if not already exists)
     try {
@@ -603,7 +584,6 @@ export function AdminPanel() {
     ]
     
     setDirectors(initialDirectors)
-    localStorage.setItem('directors', JSON.stringify(initialDirectors))
     
     try {
       for (const director of initialDirectors) {
@@ -875,7 +855,6 @@ Terms:
     ]
     
     setTerms(initialTerms)
-    localStorage.setItem('terms', JSON.stringify(initialTerms))
     
     try {
       for (const term of initialTerms) {
@@ -981,27 +960,55 @@ Terms:
   }
 
   const saveQuotation = async () => {
-    const quotation: Quotation = {
-      ...newQuotation,
-      id: Date.now().toString(),
-      number: generateQuotationNumber(),
-      status: 'sent'
-    }
-    const updated = [...quotations, quotation]
-    setQuotations(updated)
-    localStorage.setItem('quotations', JSON.stringify(updated))
-    
-    // Save to Firebase
-    try {
-      await addDoc(collection(db, 'quotations'), quotation)
-    } catch (error) {
-      console.error('Error saving quotation to Firebase:', error)
+    if (editingQuotation) {
+      // Update existing quotation
+      const updated = quotations.map(q => q.id === editingQuotation.id ? { ...newQuotation, id: editingQuotation.id, number: editingQuotation.number } : q)
+      setQuotations(updated)
+      
+      try {
+        const updateData: any = {
+          clientName: newQuotation.clientName,
+          clientAddress: newQuotation.clientAddress,
+          clientEmail: newQuotation.clientEmail,
+          clientPhone: newQuotation.clientPhone,
+          date: newQuotation.date,
+          items: newQuotation.items,
+          subtotal: newQuotation.subtotal,
+          tax: newQuotation.tax,
+          total: newQuotation.total,
+          notes: newQuotation.notes,
+          status: newQuotation.status,
+          directorId: newQuotation.directorId,
+          termsId: newQuotation.termsId
+        }
+        await updateDoc(doc(db, 'quotations', editingQuotation.id), updateData)
+      } catch (error) {
+        console.error('Error updating quotation in Firebase:', error)
+      }
+      
+      setEditingQuotation(null)
+    } else {
+      // Create new quotation
+      const quotation: Quotation = {
+        ...newQuotation,
+        id: Date.now().toString(),
+        number: generateQuotationNumber(),
+        status: 'sent'
+      }
+      const updated = [...quotations, quotation]
+      setQuotations(updated)
+      
+      try {
+        await addDoc(collection(db, 'quotations'), quotation)
+      } catch (error) {
+        console.error('Error saving quotation to Firebase:', error)
+      }
     }
     
     setShowNewQuotation(false)
     setNewQuotation({
       id: '', number: '', date: new Date().toISOString().split('T')[0], clientName: '', clientAddress: '',
-      clientEmail: '', clientPhone: '', items: [], subtotal: 0, tax: 0, total: 0, notes: '', status: 'draft'
+      clientEmail: '', clientPhone: '', items: [], subtotal: 0, tax: 0, total: 0, notes: '', status: 'draft', directorId: '', termsId: ''
     })
   }
 
@@ -1014,7 +1021,6 @@ Terms:
     }
     const updated = [...invoices, invoice]
     setInvoices(updated)
-    localStorage.setItem('invoices', JSON.stringify(updated))
     
     // Save to Firebase
     try {
@@ -1032,19 +1038,33 @@ Terms:
   }
 
   const saveCustomer = async () => {
-    const customer: Customer = {
-      ...newCustomer,
-      id: Date.now().toString()
-    }
-    const updated = [...customers, customer]
-    setCustomers(updated)
-    localStorage.setItem('customers', JSON.stringify(updated))
-    
-    // Save to Firebase
-    try {
-      await addDoc(collection(db, 'customers'), customer)
-    } catch (error) {
-      console.error('Error saving customer to Firebase:', error)
+    if (editingCustomer) {
+      // Update existing customer
+      const updated = customers.map(c => c.id === editingCustomer.id ? newCustomer : c)
+      setCustomers(updated)
+      
+      try {
+        const updateData: any = { ...newCustomer }
+        await updateDoc(doc(db, 'customers', editingCustomer.id), updateData)
+      } catch (error) {
+        console.error('Error updating customer in Firebase:', error)
+      }
+      
+      setEditingCustomer(null)
+    } else {
+      // Create new customer
+      const customer: Customer = {
+        ...newCustomer,
+        id: Date.now().toString()
+      }
+      const updated = [...customers, customer]
+      setCustomers(updated)
+      
+      try {
+        await addDoc(collection(db, 'customers'), customer)
+      } catch (error) {
+        console.error('Error saving customer to Firebase:', error)
+      }
     }
     
     setShowNewCustomer(false)
@@ -1063,7 +1083,6 @@ Terms:
     if (confirm('Are you sure you want to delete this customer?')) {
       const updated = customers.filter(c => c.id !== customerId)
       setCustomers(updated)
-      localStorage.setItem('customers', JSON.stringify(updated))
       
       // Delete from Firebase
       try {
@@ -1095,18 +1114,33 @@ Terms:
   }
 
   const saveTerm = async () => {
-    const term: TermsAndConditions = {
-      ...newTerm,
-      id: Date.now().toString()
-    }
-    const updated = [...terms, term]
-    setTerms(updated)
-    localStorage.setItem('terms', JSON.stringify(updated))
-    
-    try {
-      await addDoc(collection(db, 'terms'), term)
-    } catch (error) {
-      console.error('Error saving term to Firebase:', error)
+    if (editingTerm) {
+      // Update existing term
+      const updated = terms.map(t => t.id === editingTerm.id ? newTerm : t)
+      setTerms(updated)
+      
+      try {
+        const updateData: any = { ...newTerm }
+        await updateDoc(doc(db, 'terms', editingTerm.id), updateData)
+      } catch (error) {
+        console.error('Error updating term in Firebase:', error)
+      }
+      
+      setEditingTerm(null)
+    } else {
+      // Create new term
+      const term: TermsAndConditions = {
+        ...newTerm,
+        id: Date.now().toString()
+      }
+      const updated = [...terms, term]
+      setTerms(updated)
+      
+      try {
+        await addDoc(collection(db, 'terms'), term)
+      } catch (error) {
+        console.error('Error saving term to Firebase:', error)
+      }
     }
     
     setShowNewTerm(false)
@@ -1125,7 +1159,6 @@ Terms:
     if (confirm('Are you sure you want to delete this term?')) {
       const updated = terms.filter(t => t.id !== termId)
       setTerms(updated)
-      localStorage.setItem('terms', JSON.stringify(updated))
       
       try {
         await deleteDoc(doc(db, 'terms', termId))
@@ -1136,18 +1169,33 @@ Terms:
   }
 
   const saveDirector = async () => {
-    const director: Director = {
-      ...newDirector,
-      id: Date.now().toString()
-    }
-    const updated = [...directors, director]
-    setDirectors(updated)
-    localStorage.setItem('directors', JSON.stringify(updated))
-    
-    try {
-      await addDoc(collection(db, 'directors'), director)
-    } catch (error) {
-      console.error('Error saving director to Firebase:', error)
+    if (editingDirector) {
+      // Update existing director
+      const updated = directors.map(d => d.id === editingDirector.id ? newDirector : d)
+      setDirectors(updated)
+      
+      try {
+        const updateData: any = { ...newDirector }
+        await updateDoc(doc(db, 'directors', editingDirector.id), updateData)
+      } catch (error) {
+        console.error('Error updating director in Firebase:', error)
+      }
+      
+      setEditingDirector(null)
+    } else {
+      // Create new director
+      const director: Director = {
+        ...newDirector,
+        id: Date.now().toString()
+      }
+      const updated = [...directors, director]
+      setDirectors(updated)
+      
+      try {
+        await addDoc(collection(db, 'directors'), director)
+      } catch (error) {
+        console.error('Error saving director to Firebase:', error)
+      }
     }
     
     setShowNewDirector(false)
@@ -1166,7 +1214,6 @@ Terms:
     if (confirm('Are you sure you want to delete this director?')) {
       const updated = directors.filter(d => d.id !== directorId)
       setDirectors(updated)
-      localStorage.setItem('directors', JSON.stringify(updated))
       
       try {
         await deleteDoc(doc(db, 'directors', directorId))
@@ -1198,7 +1245,6 @@ Terms:
     
     const updated = [...invoices, invoice]
     setInvoices(updated)
-    localStorage.setItem('invoices', JSON.stringify(updated))
     
     // Save to Firebase
     try {
@@ -1208,11 +1254,10 @@ Terms:
     }
     
     // Update quotation status
-    const updatedQuotations = quotations.map(q => 
+    const updatedQuotations = quotations.map(q =>
       q.id === quotation.id ? { ...q, status: 'accepted' as const } : q
     )
     setQuotations(updatedQuotations)
-    localStorage.setItem('quotations', JSON.stringify(updatedQuotations))
     
     // Update quotation in Firebase
     try {
@@ -1221,27 +1266,12 @@ Terms:
       console.error('Error updating quotation status in Firebase:', error)
     }
     
-    alert('Quotation converted to invoice successfully!')
-  }
-
-  const markAsPaid = async (invoiceId: string) => {
-    const invoice = invoices.find(inv => inv.id === invoiceId)
-    if (!invoice) return
-    
-    const updated = invoices.map(inv => 
-      inv.id === invoiceId ? { ...inv, paidAmount: inv.total, status: 'paid' as const } : inv
-    )
-    setInvoices(updated)
-    localStorage.setItem('invoices', JSON.stringify(updated))
-    
-    // Update in Firebase
-    try {
-      await updateDoc(doc(db, 'invoices', invoiceId), { paidAmount: invoice.total, status: 'paid' })
-    } catch (error) {
-      console.error('Error updating invoice status in Firebase:', error)
-    }
-    
-    alert('Invoice marked as paid!')
+    setShowNewInvoice(false)
+    setNewInvoice({
+      id: '', number: '', date: new Date().toISOString().split('T')[0], dueDate: '', clientName: '',
+      clientAddress: '', clientEmail: '', clientPhone: '', items: [], subtotal: 0, tax: 0, total: 0,
+      paidAmount: 0, notes: '', status: 'draft'
+    })
   }
 
   const updateInvoicePayment = (invoiceId: string, paidAmount: number) => {
@@ -1253,7 +1283,16 @@ Terms:
       return inv
     })
     setInvoices(updated)
-    localStorage.setItem('invoices', JSON.stringify(updated))
+    
+    // Update in Firebase
+    try {
+      const invoice = invoices.find(inv => inv.id === invoiceId)
+      if (invoice) {
+        updateDoc(doc(db, 'invoices', invoiceId), { paidAmount, status: paidAmount > 0 && paidAmount < invoice.total ? 'partial' : paidAmount >= invoice.total ? 'paid' : 'sent' })
+      }
+    } catch (error) {
+      console.error('Error updating invoice payment in Firebase:', error)
+    }
   }
 
   const generateQuotationPDF = async (quotation: Quotation, preview: boolean = false) => {
@@ -1298,7 +1337,7 @@ Terms:
       doc.setFontSize(24)
       doc.setFont('helvetica', 'bold')
       doc.text('QUOTATION', 15, y)
-      y += 12
+      y += 8
 
       // Quotation details in a box
       doc.setDrawColor(200, 200, 200)
@@ -1310,20 +1349,20 @@ Terms:
       doc.text(`Quotation #: ${quotation.number}`, 125, y + 2)
       doc.text(`Date: ${quotation.date}`, 125, y + 8)
       doc.text(`Status: ${quotation.status.toUpperCase()}`, 125, y + 14)
-      y += 20
+      y += 15
 
       // Bill To section
       doc.setFontSize(12)
       doc.setFont('helvetica', 'bold')
       doc.text('Bill To:', 15, y)
-      y += 8
+      y += 6
 
       doc.setFontSize(10)
       doc.setFont('helvetica', 'normal')
       doc.text(quotation.clientName, 15, y)
-      y += 6
+      y += 5
       doc.text(quotation.clientAddress, 15, y)
-      y += 6
+      y += 5
       doc.text(`${quotation.clientEmail} | ${quotation.clientPhone}`, 15, y)
       y += 15
 
@@ -1341,7 +1380,7 @@ Terms:
 
       // Table border
       doc.setDrawColor(200, 200, 200)
-      doc.line(15, y - 14, 195, y - 14)
+      doc.line(15, y - 18, 195, y - 18)
 
       quotation.items.forEach(item => {
         doc.setFontSize(9)
@@ -1353,7 +1392,7 @@ Terms:
         doc.text(item.quantity.toString(), 120, y)
         doc.text(`MVR ${item.rate.toFixed(2)}`, 140, y)
         doc.text(`MVR ${item.amount.toFixed(2)}`, 170, y)
-        y += Math.max(12, descLines.length * 5 + 4)
+        y += Math.max(10, descLines.length * 4 + 2)
       })
 
       // Bottom border
@@ -1394,8 +1433,27 @@ Terms:
         })
       }
 
-      // Signature and stamp at absolute bottom - moved up
-      y = 250
+      // Terms and Conditions section
+      if (quotation.termsId) {
+        const selectedTerm = terms.find(t => t.id === quotation.termsId)
+        if (selectedTerm) {
+          y += 10
+          doc.setFontSize(10)
+          doc.setFont('helvetica', 'bold')
+          doc.text('Terms and Conditions:', 15, y)
+          y += 6
+          doc.setFontSize(8)
+          doc.setFont('helvetica', 'normal')
+          const termLines = doc.splitTextToSize(selectedTerm.content, 170)
+          termLines.forEach((line: string) => {
+            doc.text(line, 15, y)
+            y += 4
+          })
+        }
+      }
+
+      // Signature and stamp - position after terms
+      y += 20
       doc.line(15, y - 10, 80, y - 10)
       
       // Use selected director's signature or default company signature
@@ -1505,7 +1563,7 @@ Terms:
       doc.setFontSize(24)
       doc.setFont('helvetica', 'bold')
       doc.text('INVOICE', 15, y)
-      y += 12
+      y += 8
 
       // Invoice details in a box
       doc.setDrawColor(200, 200, 200)
@@ -1518,20 +1576,20 @@ Terms:
       doc.text(`Date: ${invoice.date}`, 125, y + 8)
       doc.text(`Due Date: ${invoice.dueDate}`, 125, y + 14)
       doc.text(`Status: ${invoice.status.toUpperCase()}`, 125, y + 20)
-      y += 25
+      y += 15
 
       // Bill To section
       doc.setFontSize(12)
       doc.setFont('helvetica', 'bold')
       doc.text('Bill To:', 15, y)
-      y += 8
+      y += 6
 
       doc.setFontSize(10)
       doc.setFont('helvetica', 'normal')
       doc.text(invoice.clientName, 15, y)
-      y += 6
+      y += 5
       doc.text(invoice.clientAddress, 15, y)
-      y += 6
+      y += 5
       doc.text(`${invoice.clientEmail} | ${invoice.clientPhone}`, 15, y)
       y += 15
 
@@ -1549,7 +1607,7 @@ Terms:
 
       // Table border
       doc.setDrawColor(200, 200, 200)
-      doc.line(15, y - 14, 195, y - 14)
+      doc.line(15, y - 18, 195, y - 18)
 
       invoice.items.forEach(item => {
         doc.setFontSize(9)
@@ -1561,7 +1619,7 @@ Terms:
         doc.text(item.quantity.toString(), 120, y)
         doc.text(`MVR ${item.rate.toFixed(2)}`, 140, y)
         doc.text(`MVR ${item.amount.toFixed(2)}`, 170, y)
-        y += Math.max(12, descLines.length * 5 + 4)
+        y += Math.max(10, descLines.length * 4 + 2)
       })
 
       // Bottom border
@@ -1664,8 +1722,14 @@ Terms:
     return `${window.location.origin}/view-${type}/${id}`
   }
 
-  const saveCompanyInfo = () => {
-    localStorage.setItem('companyInfo', JSON.stringify(companyInfo))
+  const saveCompanyInfo = async () => {
+    // Save to Firebase
+    try {
+      await setDoc(doc(db, 'company', 'info'), companyInfo)
+    } catch (error) {
+      console.error('Error saving company info to Firebase:', error)
+    }
+    
     alert('Company information saved!')
   }
 
@@ -1778,9 +1842,6 @@ Terms:
         setServices(updated)
       }
 
-      // Update localStorage as backup
-      localStorage.setItem('services', JSON.stringify(services))
-      
       setShowNewService(false)
       setNewService({
         id: '', name: '', description: '', price: 0, currency: 'MVR', period: 'one-time', features: [], popular: false
@@ -1797,7 +1858,6 @@ Terms:
         await deleteDoc(doc(db, 'services', serviceId))
         const updated = services.filter(s => s.id !== serviceId)
         setServices(updated)
-        localStorage.setItem('services', JSON.stringify(updated))
       } catch (error) {
         console.error('Error deleting service from Firebase:', error)
         alert('Error deleting service. Please try again.')
@@ -1818,6 +1878,41 @@ Terms:
       popular: service.popular
     })
     setShowNewService(true)
+  }
+
+  const editQuotation = (quotation: Quotation) => {
+    setEditingQuotation(quotation)
+    setNewQuotation({
+      id: quotation.id,
+      number: quotation.number,
+      date: quotation.date,
+      clientName: quotation.clientName,
+      clientAddress: quotation.clientAddress,
+      clientEmail: quotation.clientEmail,
+      clientPhone: quotation.clientPhone,
+      items: [...quotation.items],
+      subtotal: quotation.subtotal,
+      tax: quotation.tax,
+      total: quotation.total,
+      notes: quotation.notes,
+      status: quotation.status,
+      directorId: quotation.directorId || '',
+      termsId: quotation.termsId || ''
+    })
+    setShowNewQuotation(true)
+  }
+
+  const deleteQuotation = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this quotation?')) return
+    
+    const filtered = quotations.filter(q => q.id !== id)
+    setQuotations(filtered)
+    
+    try {
+      await deleteDoc(doc(db, 'quotations', id))
+    } catch (error) {
+      console.error('Error deleting quotation from Firebase:', error)
+    }
   }
 
   const addServiceFeature = () => {
@@ -2051,6 +2146,21 @@ Terms:
                       ))}
                     </select>
                   </div>
+                  <div>
+                    <Label>Select Terms and Conditions (Optional)</Label>
+                    <select 
+                      className="w-full mt-2 p-2 border rounded-md"
+                      value={newQuotation.termsId || ""}
+                      onChange={(e) => {
+                        setNewQuotation({ ...newQuotation, termsId: e.target.value })
+                      }}
+                    >
+                      <option value="">-- Select terms --</option>
+                      {terms.map(term => (
+                        <option key={term.id} value={term.id}>{term.title}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><Label>Date</Label><Input type="date" value={newQuotation.date} onChange={(e) => setNewQuotation({...newQuotation, date: e.target.value})} /></div>
                     <div><Label>Client Name *</Label><Input value={newQuotation.clientName} onChange={(e) => setNewQuotation({...newQuotation, clientName: e.target.value})} placeholder="Enter client name" /></div>
@@ -2116,8 +2226,15 @@ Terms:
                       <p className="text-lg font-bold text-primary">Total: MVR {newQuotation.total?.toFixed(2)}</p>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={() => setShowNewQuotation(false)}>Cancel</Button>
-                      <Button onClick={saveQuotation}>Save Quotation</Button>
+                      <Button variant="outline" onClick={() => {
+                        setShowNewQuotation(false)
+                        setEditingQuotation(null)
+                        setNewQuotation({
+                          id: '', number: '', date: new Date().toISOString().split('T')[0], clientName: '', clientAddress: '',
+                          clientEmail: '', clientPhone: '', items: [], subtotal: 0, tax: 0, total: 0, notes: '', status: 'draft', directorId: '', termsId: ''
+                        })
+                      }}>Cancel</Button>
+                      <Button onClick={saveQuotation}>{editingQuotation ? 'Update Quotation' : 'Save Quotation'}</Button>
                     </div>
                   </div>
                 </CardContent>
@@ -2126,7 +2243,7 @@ Terms:
 
             <div className="space-y-4">
               {quotations.map((q) => (
-                <Card key={q.id}><CardContent className="p-6"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><h3 className="font-semibold">{q.number}</h3><p className="text-sm text-gray-600">{q.clientName}</p><p className="text-sm text-gray-600">{q.date}</p><p className="text-sm text-gray-600">Status: {q.status}</p><p className="text-lg font-bold text-primary">MVR {q.total.toFixed(2)}</p></div><div className="flex gap-2 flex-wrap"><Button size="sm" variant="outline" onClick={() => previewQuotation(q)}><Eye className="w-4 h-4 mr-2" />Preview</Button><Button size="sm" variant="outline" onClick={() => generateQuotationPDF(q)}><Download className="w-4 h-4 mr-2" />PDF</Button><Button size="sm" variant="outline" onClick={() => {navigator.clipboard.writeText(getShareableLink(q.id, 'quotation')); alert('Link copied!')}}><Share2 className="w-4 h-4 mr-2" />Share</Button><Button size="sm" variant="primary" onClick={() => convertToInvoice(q)} disabled={q.status === 'accepted'}><Receipt className="w-4 h-4 mr-2" />Convert to Invoice</Button></div></div></CardContent></Card>
+                <Card key={q.id}><CardContent className="p-6"><div className="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><h3 className="font-semibold">{q.number}</h3><p className="text-sm text-gray-600">{q.clientName}</p><p className="text-sm text-gray-600">{q.date}</p><p className="text-sm text-gray-600">Status: {q.status}</p><p className="text-lg font-bold text-primary">MVR {q.total.toFixed(2)}</p></div><div className="flex gap-2 flex-wrap"><Button size="sm" variant="outline" onClick={() => previewQuotation(q)}><Eye className="w-4 h-4 mr-2" />Preview</Button><Button size="sm" variant="outline" onClick={() => generateQuotationPDF(q)}><Download className="w-4 h-4 mr-2" />PDF</Button><Button size="sm" variant="outline" onClick={() => {navigator.clipboard.writeText(getShareableLink(q.id, 'quotation')); alert('Link copied!')}}><Share2 className="w-4 h-4 mr-2" />Share</Button><Button size="sm" variant="outline" onClick={() => editQuotation(q)}><Edit className="w-4 h-4 mr-2" />Edit</Button><Button size="sm" variant="outline" onClick={() => deleteQuotation(q.id)}><Trash2 className="w-4 h-4 mr-2" />Delete</Button><Button size="sm" variant="primary" onClick={() => convertToInvoice(q)} disabled={q.status === 'accepted'}><Receipt className="w-4 h-4 mr-2" />Convert to Invoice</Button></div></div></CardContent></Card>
               ))}
               {quotations.length === 0 && <Card><CardContent className="p-12 text-center"><p className="text-gray-600">No quotations yet</p></CardContent></Card>}
             </div>
